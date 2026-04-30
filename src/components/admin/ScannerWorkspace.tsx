@@ -7,7 +7,16 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { ImagePlus, Loader2, RefreshCw, Save, Wand2 } from "lucide-react";
+import {
+  ImagePlus,
+  Loader2,
+  Move,
+  RefreshCw,
+  Save,
+  Wand2,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
@@ -15,6 +24,7 @@ import { addPhotoToAlbumFromBlob } from "@/lib/db";
 import { cn } from "@/lib/cn";
 import {
   imageDataToBlob,
+  scaleQuadAboutCentroid,
   suggestedOutputSize,
   warpQuadToRect,
   type Point,
@@ -24,6 +34,8 @@ import {
 const WORK_MAX_EDGE = 2048;
 const PREVIEW_DEBOUNCE_MS = 350;
 const SAVE_MAX_LONG_EDGE = 2600;
+/** הרחבה/כיווץ מסגרת בכל לחיצה (סביב מרכז המרובע) */
+const FRAME_SCALE_STEP = 1.07;
 
 async function fileToScaledImageData(
   file: File,
@@ -91,6 +103,11 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<SVGSVGElement>(null);
+  const framePanRef = useRef<{
+    pointerId: number;
+    startVb: Point;
+    startQuad: Quad;
+  } | null>(null);
 
   const [sourceName, setSourceName] = useState<string | null>(null);
   const [imageData, setImageData] = useState<ImageData | null>(null);
@@ -218,6 +235,64 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
     setDragIndex(null);
   }
 
+  function onFrameBgPointerDown(e: ReactPointerEvent<SVGRectElement>) {
+    if (!quad || !overlayRef.current || !W) return;
+    if (e.button !== 0 && e.pointerType !== "touch") return;
+    e.preventDefault();
+    const startVb = clientToViewBoxMeet(
+      overlayRef.current,
+      e.clientX,
+      e.clientY,
+      W,
+      H
+    );
+    framePanRef.current = {
+      pointerId: e.pointerId,
+      startVb,
+      startQuad: [...quad] as Quad,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function onFrameBgPointerMove(e: ReactPointerEvent<SVGRectElement>) {
+    const st = framePanRef.current;
+    if (!st || st.pointerId !== e.pointerId || !overlayRef.current) return;
+    const vb = clientToViewBoxMeet(
+      overlayRef.current,
+      e.clientX,
+      e.clientY,
+      W,
+      H
+    );
+    const dx = vb.x - st.startVb.x;
+    const dy = vb.y - st.startVb.y;
+    const q = st.startQuad.map((p) =>
+      clampToImage({ x: p.x + dx, y: p.y + dy })
+    ) as Quad;
+    setQuad(q);
+  }
+
+  function onFrameBgPointerEnd(e: ReactPointerEvent<SVGRectElement>) {
+    const st = framePanRef.current;
+    if (!st || st.pointerId !== e.pointerId) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    framePanRef.current = null;
+  }
+
+  function expandFrame() {
+    if (!quad) return;
+    setQuad(scaleQuadAboutCentroid(quad, FRAME_SCALE_STEP, clampToImage));
+  }
+
+  function shrinkFrame() {
+    if (!quad) return;
+    setQuad(scaleQuadAboutCentroid(quad, 1 / FRAME_SCALE_STEP, clampToImage));
+  }
+
   async function onSave() {
     if (!imageData || !quad) return;
     setSaveBusy(true);
@@ -265,6 +340,7 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
           ref={inputRef}
           type="file"
           accept="image/*"
+          capture="environment"
           className="hidden"
           onChange={(e) => void onPickFile(e.target.files?.[0])}
         />
@@ -287,10 +363,12 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
       </div>
 
       {!imageData || !quad ? (
-        <div className="rounded-2xl border border-dashed border-eggplant/20 bg-white/50 p-10 text-center text-sm text-ink-muted">
+        <div className="rounded-2xl border border-dashed border-eggplant/20 bg-white/50 p-10 text-center text-sm text-ink-muted leading-relaxed">
           <Wand2 className="mx-auto mb-3 h-8 w-8 text-eggplant/40" />
-          העלו צילום של דף או אלבום, ואז גררו את ארבע הפינות כך שיתאימו לפינות
-          המסמך.
+          <p>
+            העלו צילום של דף או אלבום. אם המצלמה בטלפון חתכה אוטומטית — אל
+            דאגה: אחרי הטעינה אפשר להרחיב, להזיז או לדייק את הפינות לפני שמירה.
+          </p>
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1fr_minmax(200px,320px)]">
@@ -304,10 +382,22 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
                 <svg
                   ref={overlayRef}
                   role="presentation"
-                  className="absolute inset-0 h-full w-full touch-none rounded-xl"
+                  className="absolute inset-0 h-full w-full touch-none rounded-xl select-none"
                   viewBox={`0 0 ${W} ${H}`}
                   preserveAspectRatio="xMidYMid meet"
                 >
+                  <rect
+                    x={0}
+                    y={0}
+                    width={W}
+                    height={H}
+                    fill="transparent"
+                    className="cursor-grab active:cursor-grabbing"
+                    onPointerDown={onFrameBgPointerDown}
+                    onPointerMove={onFrameBgPointerMove}
+                    onPointerUp={onFrameBgPointerEnd}
+                    onPointerCancel={onFrameBgPointerEnd}
+                  />
                   <polygon
                     points={quad.map((p) => `${p.x},${p.y}`).join(" ")}
                     fill="rgba(212, 175, 55, 0.12)"
@@ -320,7 +410,7 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
                       key={i}
                       cx={p.x}
                       cy={p.y}
-                      r={Math.max(10, W / 80)}
+                      r={Math.max(14, W / 65)}
                       className="cursor-grab active:cursor-grabbing fill-white stroke-eggplant"
                       strokeWidth={Math.max(2, W / 500)}
                       onPointerDown={(e) => onPointerDownCorner(e, i)}
@@ -333,10 +423,44 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
                 </svg>
               </div>
             </div>
-            <p className="text-xs text-ink-muted">
-              פינות: שמאל-עליון → ימין-עליון → ימין-תחתון → שמאל-תחתון.
-            </p>
+            <div className="space-y-2 text-xs text-ink-muted">
+              <p className="flex items-start gap-2 leading-relaxed">
+                <Move className="h-4 w-4 shrink-0 text-gold-700 mt-0.5" />
+                <span>
+                  <span className="font-medium text-ink-soft">
+                    הזזת המסגרת:
+                  </span>{" "}
+                  גררו מתוך התמונה (לא על העיגולים) כדי להזיז את כל האזור
+                  שנשמר.
+                </span>
+              </p>
+              <p>
+                <span className="font-medium text-ink-soft">פינות:</span>{" "}
+                שמאל-עליון → ימין-עליון → ימין-תחתון → שמאל-תחתון — ליישור
+                פרספקטיבה של העמוד.
+              </p>
+            </div>
             <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                startIcon={<ZoomOut className="h-4 w-4" />}
+                onClick={shrinkFrame}
+                title="מצמצם את המסגרת סביב המרכז"
+              >
+                מיקוד צר יותר
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                startIcon={<ZoomIn className="h-4 w-4" />}
+                onClick={expandFrame}
+                title="מרחיב את המסגרת — מראה יותר מהתמונה מסביב"
+              >
+                יותר שוליים
+              </Button>
               <Button
                 type="button"
                 variant="ghost"
@@ -344,7 +468,7 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
                 startIcon={<RefreshCw className="h-4 w-4" />}
                 onClick={resetCorners}
               >
-                איפוס פינות
+                איפוס לתמונה מלאה
               </Button>
               <Button
                 type="button"

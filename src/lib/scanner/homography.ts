@@ -203,6 +203,44 @@ export function suggestedOutputSize(quad: Quad): { width: number; height: number
   return { width, height };
 }
 
+/** מרכז גיאומטרי של המסגרת (ממוצע פינות). */
+export function quadCentroid(q: Quad): Point {
+  return {
+    x: (q[0].x + q[1].x + q[2].x + q[3].x) / 4,
+    y: (q[0].y + q[1].y + q[2].y + q[3].y) / 4,
+  };
+}
+
+/**
+ * מרחיבה או מכווצת את המסגרת סביב המרכז (שומרת זווית/פרספקטיבה).
+ * factor > 1 — "הראי יותר" מהסביבה; factor < 1 — מיקוד צפוף יותר.
+ */
+export function scaleQuadAboutCentroid(
+  q: Quad,
+  factor: number,
+  clamp: (p: Point) => Point
+): Quad {
+  const c = quadCentroid(q);
+  return [
+    clamp({
+      x: c.x + (q[0].x - c.x) * factor,
+      y: c.y + (q[0].y - c.y) * factor,
+    }),
+    clamp({
+      x: c.x + (q[1].x - c.x) * factor,
+      y: c.y + (q[1].y - c.y) * factor,
+    }),
+    clamp({
+      x: c.x + (q[2].x - c.x) * factor,
+      y: c.y + (q[2].y - c.y) * factor,
+    }),
+    clamp({
+      x: c.x + (q[3].x - c.x) * factor,
+      y: c.y + (q[3].y - c.y) * factor,
+    }),
+  ] as Quad;
+}
+
 export function imageDataToBlob(
   idata: ImageData,
   mime: "image/jpeg" | "image/png" = "image/jpeg",
