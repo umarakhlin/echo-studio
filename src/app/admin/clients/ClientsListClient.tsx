@@ -47,12 +47,16 @@ export function ClientsListClient() {
   const filtered = useMemo(() => {
     if (!query.trim()) return clients;
     const q = query.trim().toLowerCase();
-    return clients.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.phone?.toLowerCase().includes(q) ||
-        c.email?.toLowerCase().includes(q)
-    );
+    return clients.filter((c) => {
+      const name = String(c.name ?? "");
+      const phone = String(c.phone ?? "");
+      const email = String(c.email ?? "");
+      return (
+        name.toLowerCase().includes(q) ||
+        phone.toLowerCase().includes(q) ||
+        email.toLowerCase().includes(q)
+      );
+    });
   }, [clients, query]);
 
   const projectCount = useMemo(() => {

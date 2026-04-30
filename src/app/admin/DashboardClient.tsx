@@ -209,7 +209,11 @@ export function DashboardClient() {
         )}
       </section>
 
-      {stats && stats.projectsCount > 0 && (
+      {stats &&
+        stats.projectsCount > 0 &&
+        stats.byStatus &&
+        typeof stats.byStatus === "object" &&
+        !Array.isArray(stats.byStatus) && (
         <section className="mt-10">
           <VintageDivider label="התפלגות לפי סטטוס" />
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

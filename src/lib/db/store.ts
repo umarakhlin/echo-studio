@@ -277,6 +277,10 @@ export async function reorderPhotos(albumId: string, orderedIds: string[]): Prom
   return localPhotos.reorderPhotos(albumId, orderedIds);
 }
 
+function isPlainRecord(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
 function emptyDashboardStats(): DashboardStats {
   const byStatus = projectStatusOrder.reduce<Record<ProjectStatus, number>>(
     (acc, s) => {
@@ -299,12 +303,15 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   if (getDataBackendMode() === "cloud") {
     const r = await cloud<unknown>("getDashboardStats");
     if (
-      r &&
-      typeof r === "object" &&
-      "byStatus" in r &&
-      typeof (r as DashboardStats).clientsCount === "number"
+      isPlainRecord(r) &&
+      typeof r.clientsCount === "number" &&
+      typeof r.projectsCount === "number" &&
+      typeof r.activeProjects === "number" &&
+      typeof r.photosCount === "number" &&
+      typeof r.starredCount === "number" &&
+      isPlainRecord(r.byStatus)
     ) {
-      return r as DashboardStats;
+      return r as unknown as DashboardStats;
     }
     return emptyDashboardStats();
   }
