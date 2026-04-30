@@ -1,5 +1,7 @@
 import JSZip from "jszip";
 
+import { getDataBackendMode } from "@/lib/data-backend";
+
 import { getDB, resetEchoDatabase } from "./schema";
 import type { Album, Client, Photo, Project } from "./types";
 
@@ -51,6 +53,14 @@ function mimeToFileSuffix(mime: string): string {
   if (m.includes("gif")) return ".gif";
   if (m.includes("jpeg") || m.includes("jpg")) return ".jpg";
   return ".bin";
+}
+
+function assertLocalZipBackup(): void {
+  if (getDataBackendMode() === "cloud") {
+    throw new Error(
+      "גיבוי ZIP מקומי לא זמין במצב ענן — הנתונים ב־Supabase. השתמשי בגיבוי/ייצוא של Supabase או במסמכי הענן שלכם."
+    );
+  }
 }
 
 function isEchoBackupManifest(v: unknown): v is EchoBackupManifest {
@@ -117,6 +127,7 @@ function photoToEntry(p: Photo, blobPath: string, thumbnailPath?: string): Backu
  * מיועד ל־גיבוי ידני מהסטודיו (IndexedDB מקומי).
  */
 export async function createBackupZipBlob(): Promise<Blob> {
+  assertLocalZipBackup();
   const db = await getDB();
   const [clients, projects, albums, photos] = await Promise.all([
     db.getAll("clients"),
@@ -170,6 +181,7 @@ export async function createBackupZipBlob(): Promise<Blob> {
  * מוחק את כל הנתונים הקיימים באותו דפדפן לפני הכתיבה.
  */
 export async function restoreBackupFromZipBlob(zipBlob: Blob): Promise<void> {
+  assertLocalZipBackup();
   const zip = await JSZip.loadAsync(await zipBlob.arrayBuffer());
   const manifestNode = zip.file("manifest.json");
   if (!manifestNode) {
@@ -218,6 +230,7 @@ export async function restoreBackupFromZipBlob(zipBlob: Blob): Promise<void> {
 }
 
 export async function getBackupStats(): Promise<BackupStats> {
+  assertLocalZipBackup();
   const db = await getDB();
   const [clients, projects, albums, photos] = await Promise.all([
     db.getAll("clients"),

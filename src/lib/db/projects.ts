@@ -1,28 +1,10 @@
 import { v4 as uuid } from "uuid";
 
+import { generateProjectCode } from "./projectSecrets";
+export { generatePassword, generateProjectCode } from "./projectSecrets";
+
 import { getDB } from "./schema";
 import type { Project, ProjectStatus } from "./types";
-
-/** קוד פרויקט קצר וזכיר: 4 תווים אלפא + 4 ספרות. */
-export function generateProjectCode(): string {
-  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // ללא O/I לקריאות
-  const digits = "0123456789";
-  const pick = (src: string, n: number) =>
-    Array.from(
-      { length: n },
-      () => src[Math.floor(Math.random() * src.length)]
-    ).join("");
-  return `${pick(letters, 4)}-${pick(digits, 4)}`;
-}
-
-/** סיסמה אקראית קצרה ידידותית (8 תווים, ללא 0/O/I/1). */
-export function generatePassword(): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  return Array.from(
-    { length: 8 },
-    () => alphabet[Math.floor(Math.random() * alphabet.length)]
-  ).join("");
-}
 
 export async function listProjects(): Promise<Project[]> {
   const db = await getDB();

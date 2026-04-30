@@ -1,23 +1,17 @@
 /**
- * נקודת כניסה אחת לשכבת הנתונים של Echo.
- * מאחורי הקלעים: IndexedDB (בעזרת idb).
- *
- * החלפה ל-Supabase בעתיד תיעשה ב-`src/lib/db/*` בלבד -
- * הקריאות מהקומפוננטות נשארות זהות.
+ * נקודת כניסה לשכבת הנתונים — מקומי (IndexedDB) או ענן (Supabase דרך API).
  */
 
 export * from "./types";
 export * from "./schema";
 
 export {
+  fetchPublicAlbumPage,
   listClients,
   getClient,
   createClient,
   updateClient,
   deleteClient,
-} from "./clients";
-
-export {
   listProjects,
   listProjectsByClient,
   getProject,
@@ -28,18 +22,12 @@ export {
   deleteProject,
   generateProjectCode,
   generatePassword,
-} from "./projects";
-
-export {
   listAlbumsByProject,
   getAlbum,
   createAlbum,
   updateAlbum,
   deleteAlbum,
   ensureDefaultAlbum,
-} from "./albums";
-
-export {
   listPhotosByAlbum,
   listPhotosByProject,
   getPhoto,
@@ -49,9 +37,8 @@ export {
   toggleStarPhoto,
   deletePhoto,
   reorderPhotos,
-} from "./photos";
-
-export { getDashboardStats } from "./stats";
+  getDashboardStats,
+} from "./store";
 
 export {
   createBackupZipBlob,

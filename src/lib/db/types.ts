@@ -83,6 +83,10 @@ export interface Photo {
   blob: Blob;
   /** תמונה ממוזערת ~512px לרוחב לטעינה מהירה */
   thumbnailBlob?: Blob;
+  /** כתובת ציבורית לתצוגה (מצב ענן — Supabase Storage) */
+  displayUrl?: string;
+  /** כתובת ציבורית לתמונה ממוזערת (מצב ענן) */
+  thumbnailDisplayUrl?: string;
   width?: number;
   height?: number;
   starred: boolean;

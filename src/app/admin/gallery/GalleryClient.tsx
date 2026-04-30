@@ -143,7 +143,8 @@ function GalleryThumb({
   photo: Photo;
   project?: Project;
 }) {
-  const url = useBlobUrl(photo.thumbnailBlob ?? photo.blob);
+  const blobUrl = useBlobUrl(photo.thumbnailBlob ?? photo.blob);
+  const url = photo.thumbnailDisplayUrl ?? photo.displayUrl ?? blobUrl ?? null;
 
   return (
     <Link

@@ -15,7 +15,9 @@ interface Props {
 }
 
 export function PhotoTile({ photo, onToggleStar, onDelete }: Props) {
-  const url = useBlobUrl(photo.thumbnailBlob ?? photo.blob);
+  const blobUrl = useBlobUrl(photo.thumbnailBlob ?? photo.blob);
+  const url =
+    photo.thumbnailDisplayUrl ?? photo.displayUrl ?? blobUrl ?? null;
   const [busy, setBusy] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
 

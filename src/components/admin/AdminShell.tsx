@@ -14,9 +14,10 @@ import {
 } from "lucide-react";
 
 import { Logo } from "@/components/ui/Logo";
-import { ToastProvider } from "@/components/ui/Toast";
+import { ToastProvider, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/cn";
 import { AdminRejectionGuard } from "@/components/admin/AdminRejectionGuard";
+import { getDataBackendMode } from "@/lib/data-backend";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "דשבורד", icon: LayoutDashboard, exact: true },
@@ -135,10 +136,19 @@ function Sidebar({
 }
 
 function StudioStabilityBanner() {
+  if (getDataBackendMode() === "cloud") {
+    return <CloudStorageBanner />;
+  }
+
   return (
     <div className="border-b border-eggplant/10 bg-cream-200/90 px-5 py-2.5 text-center text-[13px] leading-snug text-ink-soft sm:px-8">
-      <span className="font-medium text-eggplant">יציבות:</span> הנתונים נשמרים
-      רק במחשב ובדפדפן הזה. לפני עדכוני מערכת או ניקוי דפדפן — הורידי{" "}
+      <span className="font-medium text-eggplant">אחסון מקומי:</span> הנתונים
+      נשמרים רק במחשב ובדפדפן הזה —<strong className="text-ink"> לא </strong>
+      יופיעו בטלפון או במחשב אחר. למעבר לענן: הגדרי ב-Vercel{" "}
+      <span dir="ltr" className="font-mono text-xs">
+        NEXT_PUBLIC_DATA_BACKEND=cloud
+      </span>{" "}
+      + Supabase, ופרסי מחדש. לפני עדכוני מערכת —{" "}
       <Link
         href="/admin/backup"
         className="font-medium text-eggplant underline-offset-2 hover:underline"
@@ -146,6 +156,72 @@ function StudioStabilityBanner() {
         גיבוי
       </Link>
       .
+    </div>
+  );
+}
+
+function CloudStorageBanner() {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  async function runTest() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/studio-connection-test", {
+        credentials: "include",
+      });
+      const j = (await res.json()) as {
+        error?: string;
+        database?: {
+          skipped?: boolean;
+          reason?: string;
+          ok?: boolean;
+          clientCount?: number;
+          error?: string;
+          hint?: string;
+        };
+      };
+      if (!res.ok) {
+        toast.error(j.error ?? "בדיקה נכשלה.");
+        return;
+      }
+      const db = j.database;
+      if (db?.skipped) {
+        toast.info(db.reason ?? "");
+        return;
+      }
+      if (db?.ok) {
+        toast.success(`חיבור לענן תקין. נמצאו ${db.clientCount ?? 0} לקוחות.`);
+        return;
+      }
+      const err = db?.error ?? "שגיאת מסד.";
+      const hint = db?.hint ? ` ${db.hint}` : "";
+      toast.error(`${err}${hint}`);
+    } catch {
+      toast.error("לא ניתן להריץ בדיקה — רענני את הדף.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="border-b border-emerald-200/80 bg-emerald-50/95 px-5 py-2.5 sm:px-8">
+      <div className="mx-auto max-w-3xl text-center text-[13px] leading-snug text-emerald-950">
+        <span className="font-medium">אחסון ענן (Supabase):</span> אותם לקוחות
+        ופרויקטים בכל מכשיר — רק אם נכנסת ל־
+        <strong className="font-semibold"> אותה כתובת אתר</strong> (לא localhost
+        במחשב ו-Vercel בטלפון). לבדיקה — לחצי כפתור (תוצאה בפינה).
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={runTest}
+            className="rounded-lg bg-emerald-800 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-emerald-900 disabled:opacity-55"
+          >
+            {busy ? "בודק…" : "בדיקת חיבור לענן"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

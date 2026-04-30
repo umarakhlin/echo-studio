@@ -5,6 +5,7 @@ import { AlertTriangle, Download, HardDrive, Info, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+import { getDataBackendMode } from "@/lib/data-backend";
 import {
   createBackupZipBlob,
   getBackupStats,
@@ -21,12 +22,18 @@ function formatBytes(n: number): string {
 export function BackupClient() {
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isCloud = getDataBackendMode() === "cloud";
   const [stats, setStats] = useState<BackupStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
   useEffect(() => {
+    if (isCloud) {
+      setLoadingStats(false);
+      setStats(null);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -42,7 +49,7 @@ export function BackupClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isCloud]);
 
   async function downloadBackup() {
     try {
@@ -104,39 +111,56 @@ export function BackupClient() {
           <h1 className="font-display text-3xl font-semibold">גיבוי הסטודיו</h1>
         </div>
         <p className="text-sm text-ink-muted leading-relaxed">
-          כל הלקוחות, הפרויקטים, האלבומים והתמונות נשמרים{" "}
-          <strong className="text-ink-soft">רק במחשב ובדפדפן הזה</strong> (מסד
-          מקומי). גיבוי קבוע מגן עליך לפני עדכון macOS, מעבר דפדפן, או ניקוי
-          נתונים.
+          {isCloud ? (
+            <>
+              במצב <strong className="text-ink-soft">ענן</strong> הנתונים נשמרים
+              ב־Supabase. גיבוי ZIP מהדפדפן אינו זמין — השתמשי בגיבוי/ייצוא של
+              Supabase (Dashboard → Database / Storage) לפי מדיניות הארגון.
+            </>
+          ) : (
+            <>
+              כל הלקוחות, הפרויקטים, האלבומים והתמונות נשמרים{" "}
+              <strong className="text-ink-soft">רק במחשב ובדפדפן הזה</strong>{" "}
+              (מסד מקומי). גיבוי קבוע מגן עליך לפני עדכון macOS, מעבר דפדפן, או
+              ניקוי נתונים.
+            </>
+          )}
         </p>
       </header>
 
-      <div className="card space-y-3 p-5">
-        <div className="flex gap-2 text-sm text-ink-soft">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-gold-600" />
-          <p>
-            הקובץ הוא <span className="font-mono text-xs">.zip</span> עם{" "}
-            <span className="font-mono text-xs">manifest.json</span> ותיקיית{" "}
-            <span className="font-mono text-xs">blobs/</span> לתמונות. אפשר{" "}
-            <strong>לשחזר מהממשק</strong> מאותו פורמט — השחזור מחליף את כל מה
-            שיש כרגע בדפדפן.
-          </p>
-        </div>
+      {!isCloud && (
+        <div className="card space-y-3 p-5">
+          <div className="flex gap-2 text-sm text-ink-soft">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-gold-600" />
+            <p>
+              הקובץ הוא <span className="font-mono text-xs">.zip</span> עם{" "}
+              <span className="font-mono text-xs">manifest.json</span> ותיקיית{" "}
+              <span className="font-mono text-xs">blobs/</span> לתמונות. אפשר{" "}
+              <strong>לשחזר מהממשק</strong> מאותו פורמט — השחזור מחליף את כל מה
+              שיש כרגע בדפדפן.
+            </p>
+          </div>
 
-        <div className="flex gap-2 rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-xs text-amber-950">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>
-            אלבום ללקוח בקישור עובד <strong>רק באותו דפדפן</strong> שבו הוזנו
-            הנתונים — עד שנרים שרת משותף. הגיבוי הוא עדיין חשוב גם ככה.
-          </p>
+          <div className="flex gap-2 rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-xs text-amber-950">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              אלבום ללקוח בקישור עובד <strong>רק באותו דפדפן</strong> שבו הוזנו
+              הנתונים — במצב מקומי. הגיבוי חשוב גם ככה.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="card p-5">
         <h2 className="font-display text-lg font-semibold text-eggplant">
           מצב נוכחי במסד
         </h2>
-        {loadingStats ? (
+        {isCloud ? (
+          <p className="mt-3 text-sm text-ink-soft leading-relaxed">
+            הסטטיסטיקות והורדת ZIP זמינות רק במצב מקומי. במצב ענן בדקי את לוח
+            הבקרה של Supabase.
+          </p>
+        ) : loadingStats ? (
           <p className="mt-3 text-sm text-ink-muted">טוען…</p>
         ) : stats ? (
           <ul className="mt-3 grid gap-2 text-sm text-ink-soft sm:grid-cols-2">
@@ -164,34 +188,36 @@ export function BackupClient() {
           </p>
         )}
 
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Button
-            type="button"
-            loading={exporting}
-            onClick={downloadBackup}
-            startIcon={<Download className="h-4 w-4" />}
-            disabled={loadingStats || !stats || restoring}
-          >
-            הורדת קובץ גיבוי (ZIP)
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            loading={restoring}
-            onClick={openRestorePicker}
-            startIcon={<Upload className="h-4 w-4" />}
-            disabled={loadingStats || exporting}
-          >
-            שחזור מקובץ ZIP…
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".zip,application/zip"
-            className="hidden"
-            onChange={onRestoreFile}
-          />
-        </div>
+        {!isCloud && (
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button
+              type="button"
+              loading={exporting}
+              onClick={downloadBackup}
+              startIcon={<Download className="h-4 w-4" />}
+              disabled={loadingStats || !stats || restoring}
+            >
+              הורדת קובץ גיבוי (ZIP)
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              loading={restoring}
+              onClick={openRestorePicker}
+              startIcon={<Upload className="h-4 w-4" />}
+              disabled={loadingStats || exporting}
+            >
+              שחזור מקובץ ZIP…
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".zip,application/zip"
+              className="hidden"
+              onChange={onRestoreFile}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

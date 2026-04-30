@@ -7,7 +7,9 @@ import { Home, Star } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useBlobUrl } from "@/lib/blob-url";
 import { cn } from "@/lib/cn";
+import { getDataBackendMode } from "@/lib/data-backend";
 import {
+  fetchPublicAlbumPage,
   getProjectByCode,
   listAlbumsByProject,
   listPhotosByProject,
@@ -32,6 +34,21 @@ export function ClientAlbumView({ code }: { code: string }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (getDataBackendMode() === "cloud") {
+        const page = await fetchPublicAlbumPage(code);
+        if (cancelled) return;
+        if (!page) {
+          setStage("not-found");
+          return;
+        }
+        setProject(page.project);
+        setAlbums(page.albums);
+        setPhotos(page.photos);
+        setActiveAlbumId(page.albums[0]?.id ?? null);
+        setStage("view");
+        return;
+      }
+
       const p = await getProjectByCode(code);
       if (cancelled) return;
 
@@ -87,14 +104,31 @@ export function ClientAlbumView({ code }: { code: string }) {
           האלבום לא נמצא
         </h1>
         <p className="mt-3 max-w-md text-ink-soft text-sm leading-relaxed">
-          הקוד <span dir="ltr" className="font-mono">{code}</span> אינו תואם
-          לאלבום פעיל <strong className="text-ink-soft">בדפדפן ובמכשיר הזה</strong>.
-          הנתונים נשמרים מקומית — אם יצרת את הפרויקט במחשב אחר, ב־Safari אחר או
-          בלי שחזור גיבוי, הכניסה כאן לא תמצא אותו.
+          הקוד <span dir="ltr" className="font-mono">{code}</span> אינו תואם לאלבום
+          פעיל.
+          {getDataBackendMode() === "cloud" ? (
+            <>
+              {" "}
+              במצב ענן הנתונים משותפים — ייתכן שהקוד שגוי או שהפרויקט הוסר.
+            </>
+          ) : (
+            <>
+              {" "}
+              <strong className="text-ink-soft">בדפדפן ובמכשיר הזה</strong> הנתונים
+              נשמרים מקומית — אם יצרת את הפרויקט במחשב אחר או בלי שחזור גיבוי,
+              הכניסה כאן לא תמצא אותו.
+            </>
+          )}
         </p>
         <p className="mt-3 max-w-md text-xs text-ink-muted leading-relaxed">
-          פתרון לצוות: להיכנס לסטודיו ממכשיר עם הנתונים → גיבוי — או לשחזר ZIP
-          בדפדפן הזה. ללקוח: וודאו שהקישור והקוד מהודעת Echo מדויקים.
+          {getDataBackendMode() === "cloud" ? (
+            <>ללקוח: וודאו שהקישור והקוד מהודעת Echo מדויקים.</>
+          ) : (
+            <>
+              פתרון לצוות: להיכנס לסטודיו ממכשיר עם הנתונים → גיבוי — או לשחזר ZIP
+              בדפדפן הזה. ללקוח: וודאו שהקישור והקוד מהודעת Echo מדויקים.
+            </>
+          )}
         </p>
         <Link
           href="/login"
@@ -208,7 +242,8 @@ export function ClientAlbumView({ code }: { code: string }) {
 }
 
 function ClientPhotoTile({ photo }: { photo: Photo }) {
-  const url = useBlobUrl(photo.thumbnailBlob ?? photo.blob);
+  const blobUrl = useBlobUrl(photo.thumbnailBlob ?? photo.blob);
+  const url = photo.thumbnailDisplayUrl ?? photo.displayUrl ?? blobUrl ?? null;
   return (
     <figure className="overflow-hidden rounded-xl bg-cream-300 shadow-soft border border-eggplant/10">
       <div className="relative aspect-[4/5]">
