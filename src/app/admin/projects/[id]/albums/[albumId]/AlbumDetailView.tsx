@@ -300,6 +300,7 @@ export function AlbumDetailView({
                   onToggleStar={onToggleStar}
                   onDelete={onDeletePhoto}
                   onEdit={(p) => setEditingPhoto(p)}
+                  recropScanHref={`/admin/projects/${projectId}/albums/${albumId}/scan?editPhoto=${photo.id}`}
                 />
               </li>
             ))}

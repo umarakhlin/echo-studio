@@ -83,6 +83,33 @@ export async function addPhotoToAlbumFromBlob(input: {
   });
 }
 
+/** מחליף את קובץ התמונה שכבר קיים (אותו מזהה ומספר עוקב) — אחרי סורק / יישור מחדש. */
+export async function replacePhotoFromBlob(input: {
+  photoId: string;
+  blob: Blob;
+  fileName: string;
+  mimeType?: string;
+}): Promise<Photo> {
+  const db = await getDB();
+  const existing = await db.get("photos", input.photoId);
+  if (!existing) throw new Error(`Photo ${input.photoId} not found`);
+  const mime = input.mimeType ?? (input.blob.type || "image/jpeg");
+  const file = new File([input.blob], input.fileName, { type: mime });
+  const { thumbnail, width, height } = await createThumbnail(file);
+  const updated: Photo = {
+    ...existing,
+    fileName: input.fileName,
+    mimeType: mime,
+    blob: file,
+    thumbnailBlob: thumbnail,
+    width,
+    height,
+    updatedAt: Date.now(),
+  };
+  await db.put("photos", updated);
+  return updated;
+}
+
 export async function updatePhoto(
   id: string,
   patch: Partial<Omit<Photo, "id" | "createdAt" | "blob" | "thumbnailBlob">>

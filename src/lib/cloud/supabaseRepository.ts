@@ -529,6 +529,53 @@ export async function cloudUploadPhoto(input: {
   return rowToPhoto(row as unknown as Record<string, unknown>);
 }
 
+export async function cloudReplacePhotoImage(input: {
+  photoId: string;
+  file: File;
+}): Promise<Photo> {
+  const existing = await cloudGetPhoto(input.photoId);
+  if (!existing) throw new Error(`Photo ${input.photoId} not found`);
+
+  const sb = supabaseAdmin();
+  const { data: row, error: fetchErr } = await sb
+    .from("echo_photos")
+    .select("storage_path, thumb_path, project_id")
+    .eq("id", input.photoId)
+    .maybeSingle();
+  if (fetchErr) throw new Error(fetchErr.message);
+  if (!row) throw new Error("שורת תמונה לא נמצאה.");
+  const r = row as { storage_path: string; thumb_path: string; project_id: string };
+  if (r.project_id !== existing.projectId) {
+    throw new Error("התמונה אינה שייכת לפרויקט.");
+  }
+
+  const buf = Buffer.from(await input.file.arrayBuffer());
+  const mime = input.file.type || "image/jpeg";
+
+  const { error: upOrig } = await sb.storage
+    .from(ECHO_PHOTOS_BUCKET)
+    .upload(r.storage_path, buf, { contentType: mime, upsert: true });
+  if (upOrig) throw new Error(upOrig.message);
+
+  const { error: upThumb } = await sb.storage
+    .from(ECHO_PHOTOS_BUCKET)
+    .upload(r.thumb_path, buf, { contentType: "image/jpeg", upsert: true });
+  if (upThumb) throw new Error(upThumb.message);
+
+  const now = Date.now();
+  const { error: upRow } = await sb
+    .from("echo_photos")
+    .update({
+      file_name: input.file.name,
+      mime_type: mime,
+      updated_at: now,
+    })
+    .eq("id", input.photoId);
+  if (upRow) throw new Error(upRow.message);
+
+  return (await cloudGetPhoto(input.photoId))!;
+}
+
 export async function cloudUpdatePhoto(
   id: string,
   patch: Partial<Omit<Photo, "id" | "createdAt" | "blob" | "thumbnailBlob">>

@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { PencilLine, Star, Trash2 } from "lucide-react";
+import { PencilLine, ScanLine, Star, Trash2 } from "lucide-react";
 
 import { useBlobUrl } from "@/lib/blob-url";
 import { cn } from "@/lib/cn";
@@ -14,9 +15,17 @@ interface Props {
   onDelete: (photo: Photo) => Promise<void> | void;
   /** עריכת מטא־דאטה (שם, תאריך, סיפור, אנשים) אחרי שמירה */
   onEdit?: (photo: Photo) => void;
+  /** קישור לסורק לעריכת יישור/חיתוך מחדש של אותה תמונה באלבום */
+  recropScanHref?: string;
 }
 
-export function PhotoTile({ photo, onToggleStar, onDelete, onEdit }: Props) {
+export function PhotoTile({
+  photo,
+  onToggleStar,
+  onDelete,
+  onEdit,
+  recropScanHref,
+}: Props) {
   const blobUrl = useBlobUrl(photo.thumbnailBlob ?? photo.blob);
   const url =
     photo.thumbnailDisplayUrl ?? photo.displayUrl ?? blobUrl ?? null;
@@ -79,6 +88,17 @@ export function PhotoTile({ photo, onToggleStar, onDelete, onEdit }: Props) {
             className={cn("h-3.5 w-3.5", photo.starred && "fill-current")}
           />
         </button>
+
+        {recropScanHref ? (
+          <Link
+            href={recropScanHref}
+            onClick={(e) => e.stopPropagation()}
+            aria-label="יישור וחיתוך מחדש בסורק"
+            className="absolute top-11 left-1/2 z-10 inline-flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full border border-eggplant/15 bg-white/90 text-eggplant opacity-0 shadow-soft transition-opacity hover:bg-white group-hover:opacity-100"
+          >
+            <ScanLine className="h-3.5 w-3.5" />
+          </Link>
+        ) : null}
 
         {onEdit && (
           <button

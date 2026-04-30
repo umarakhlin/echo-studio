@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ChevronRight, ScanLine } from "lucide-react";
 
@@ -18,6 +19,8 @@ export function AlbumScanView({
   albumId: string;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editPhotoId = searchParams.get("editPhoto")?.trim() || undefined;
   const [project, setProject] = useState<Project | null | undefined>(undefined);
   const [album, setAlbum] = useState<Album | null | undefined>(undefined);
 
@@ -118,6 +121,7 @@ export function AlbumScanView({
         <ScannerWorkspace
           albumId={album.id}
           projectId={project.id}
+          editPhotoId={editPhotoId}
           onSaved={() => {
             router.refresh();
           }}

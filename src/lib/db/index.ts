@@ -33,6 +33,7 @@ export {
   getPhoto,
   addPhotoToAlbum,
   addPhotoToAlbumFromBlob,
+  replacePhotoFromBlob,
   updatePhoto,
   toggleStarPhoto,
   deletePhoto,

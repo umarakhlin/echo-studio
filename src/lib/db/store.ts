@@ -5,7 +5,7 @@
 
 import { getDataBackendMode } from "@/lib/data-backend";
 
-import { studioOp, uploadStudioPhoto } from "./cloudFetch";
+import { studioOp, replaceStudioPhoto, uploadStudioPhoto } from "./cloudFetch";
 import type { Album, Client, DashboardStats, Photo, Project, ProjectStatus } from "./types";
 import { projectStatusOrder } from "./types";
 
@@ -248,6 +248,20 @@ export async function addPhotoToAlbumFromBlob(input: {
     });
   }
   return (await import("./photos")).addPhotoToAlbumFromBlob(input);
+}
+
+export async function replacePhotoFromBlob(input: {
+  photoId: string;
+  blob: Blob;
+  fileName: string;
+  mimeType?: string;
+}): Promise<Photo> {
+  if (getDataBackendMode() === "cloud") {
+    const mime = (input.mimeType ?? input.blob.type) || "image/jpeg";
+    const file = new File([input.blob], input.fileName, { type: mime });
+    return replaceStudioPhoto({ photoId: input.photoId, file });
+  }
+  return (await import("./photos")).replacePhotoFromBlob(input);
 }
 
 export async function updatePhoto(

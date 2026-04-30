@@ -20,7 +20,11 @@ import {
 
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
-import { addPhotoToAlbumFromBlob } from "@/lib/db";
+import {
+  addPhotoToAlbumFromBlob,
+  getPhoto,
+  replacePhotoFromBlob,
+} from "@/lib/db/store";
 import { cn } from "@/lib/cn";
 import {
   imageDataToBlob,
@@ -95,10 +99,17 @@ function clientToViewBoxMeet(
 interface Props {
   albumId: string;
   projectId: string;
+  /** כשנשלח — טוענים תמונה קיימת לסורק ומעדכנים אותה בשמירה (במקום יצירת כפילות) */
+  editPhotoId?: string | null;
   onSaved?: () => void | Promise<void>;
 }
 
-export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
+export function ScannerWorkspace({
+  albumId,
+  projectId,
+  editPhotoId,
+  onSaved,
+}: Props) {
   const toast = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const baseCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -116,6 +127,11 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
+  const [editTarget, setEditTarget] = useState<{
+    id: string;
+    defaultFileName: string;
+  } | null>(null);
+  const [loadingEditSource, setLoadingEditSource] = useState(false);
 
   const W = imageData?.width ?? 0;
   const H = imageData?.height ?? 0;
@@ -180,6 +196,70 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
     };
   }, [previewUrl]);
 
+  useEffect(() => {
+    if (!editPhotoId?.trim()) {
+      setEditTarget(null);
+      return;
+    }
+    const id = editPhotoId.trim();
+    let cancelled = false;
+    setLoadingEditSource(true);
+    (async () => {
+      try {
+        const ph = await getPhoto(id);
+        if (cancelled) return;
+        if (!ph) {
+          toast.error("התמונה לא נמצאה.");
+          return;
+        }
+        if (ph.albumId !== albumId || ph.projectId !== projectId) {
+          toast.error("התמונה לא שייכת לאלבום הזה.");
+          return;
+        }
+        let file: File | null = null;
+        if (ph.blob instanceof Blob && ph.blob.size > 0) {
+          file = new File([ph.blob], ph.fileName, { type: ph.mimeType });
+        } else if (ph.displayUrl?.trim()) {
+          const res = await fetch(ph.displayUrl);
+          if (!res.ok) {
+            throw new Error("לא ניתן להוריד את התמונה — בדקי את החיבור לענן.");
+          }
+          const b = await res.blob();
+          file = new File([b], ph.fileName, {
+            type: b.type || ph.mimeType || "image/jpeg",
+          });
+        } else {
+          toast.error(
+            "אין גישה לקובץ המקורי. במצב מקומי פתחי מהמחשב שבו נשמרה התמונה."
+          );
+          return;
+        }
+        const idata = await fileToScaledImageData(file, WORK_MAX_EDGE);
+        if (cancelled) return;
+        setEditTarget({ id: ph.id, defaultFileName: ph.fileName });
+        setSourceName(`${ph.fileName} · עריכת יישור`);
+        setImageData(idata);
+        setQuad(fullImageQuad(idata.width, idata.height));
+        setPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          toast.error(
+            e instanceof Error ? e.message : "טעינת התמונה לעריכה נכשלה."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoadingEditSource(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editPhotoId, albumId, projectId]);
+
   async function onPickFile(file: File | undefined) {
     if (!file || !file.type.startsWith("image/")) {
       toast.error("נא לבחור קובץ תמונה.");
@@ -190,6 +270,7 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
       setSourceName(file.name);
       setImageData(idata);
       setQuad(fullImageQuad(idata.width, idata.height));
+      setEditTarget(null);
       setPreviewUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
@@ -306,17 +387,31 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
       }
       const out = warpQuadToRect(imageData, quad, ow, oh);
       const blob = await imageDataToBlob(out, "image/jpeg", 0.93);
-      const base =
-        sourceName?.replace(/\.[^.]+$/, "") ?? "scan";
-      const fileName = `${base}-${Date.now()}.jpg`;
-      await addPhotoToAlbumFromBlob({
-        albumId,
-        projectId,
-        blob,
-        fileName,
-        mimeType: "image/jpeg",
-      });
-      toast.success("התמונה המיושרת נשמרה באלבום.");
+      const baseFromName = (name: string) => name.replace(/\.[^.]+$/, "");
+      const base = editTarget
+        ? baseFromName(editTarget.defaultFileName)
+        : baseFromName(sourceName ?? "") || "scan";
+
+      if (editTarget) {
+        const fileName = `${base}.jpg`;
+        await replacePhotoFromBlob({
+          photoId: editTarget.id,
+          blob,
+          fileName,
+          mimeType: "image/jpeg",
+        });
+        toast.success("התמונה באלבום עודכנה — היישור החדש נשמר.");
+      } else {
+        const fileName = `${base}-${Date.now()}.jpg`;
+        await addPhotoToAlbumFromBlob({
+          albumId,
+          projectId,
+          blob,
+          fileName,
+          mimeType: "image/jpeg",
+        });
+        toast.success("התמונה המיושרת נשמרה באלבום.");
+      }
       await onSaved?.();
     } catch (e) {
       console.error(e);
@@ -335,6 +430,13 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
 
   return (
     <div className="space-y-6">
+      {loadingEditSource && editPhotoId ? (
+        <div className="flex items-center justify-center gap-3 rounded-2xl border border-eggplant/15 bg-white/60 py-16 text-sm text-ink-muted">
+          <Loader2 className="h-7 w-7 shrink-0 animate-spin text-eggplant/50" />
+          טוענים את התמונה לעריכת יישור…
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-3">
         <input
           ref={inputRef}
@@ -362,7 +464,7 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
         )}
       </div>
 
-      {!imageData || !quad ? (
+      {!loadingEditSource && (!imageData || !quad) ? (
         <div className="rounded-2xl border border-dashed border-eggplant/20 bg-white/50 p-10 text-center text-sm text-ink-muted leading-relaxed">
           <Wand2 className="mx-auto mb-3 h-8 w-8 text-eggplant/40" />
           <p>
@@ -370,9 +472,15 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
             דאגה: אחרי הטעינה אפשר להרחיב, להזיז או לדייק את הפינות לפני שמירה.
           </p>
         </div>
-      ) : (
+      ) : !loadingEditSource && imageData && quad ? (
         <div className="grid gap-6 lg:grid-cols-[1fr_minmax(200px,320px)]">
           <div className="space-y-3">
+            {editTarget ? (
+              <p className="rounded-xl border border-gold-400/45 bg-gold-50/90 px-4 py-3 text-sm text-eggplant leading-relaxed">
+                עורכים תמונה שכבר נשמרה באלבום. לחיצה על &quot;עדכון&quot;
+                תחליף את קובץ התמונה (אותו מספר עוקב ואותם פרטים).
+              </p>
+            ) : null}
             <div className="relative w-full rounded-2xl border border-eggplant/15 bg-ink/5 p-2">
               <div className="relative w-full leading-[0]">
                 <canvas
@@ -486,7 +594,7 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
                 startIcon={<Save className="h-4 w-4" />}
                 onClick={() => void onSave()}
               >
-                שמירה לאלבום
+                {editTarget ? "עדכון תמונה באלבום" : "שמירה לאלבום"}
               </Button>
             </div>
           </div>
@@ -517,7 +625,7 @@ export function ScannerWorkspace({ albumId, projectId, onSaved }: Props) {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

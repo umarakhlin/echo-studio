@@ -48,3 +48,27 @@ export async function uploadStudioPhoto(params: {
   }
   return JSON.parse(text) as Photo;
 }
+
+export async function replaceStudioPhoto(params: {
+  photoId: string;
+  file: File;
+}): Promise<Photo> {
+  const fd = new FormData();
+  fd.append("replacePhotoId", params.photoId);
+  fd.append("file", params.file);
+  const res = await fetch("/api/studio-data/upload-photo", {
+    method: "POST",
+    body: fd,
+    credentials: "include",
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    try {
+      const j = JSON.parse(text) as { error?: string };
+      throw new Error(j.error ?? text);
+    } catch {
+      throw new Error(text || "החלפת התמונה נכשלה.");
+    }
+  }
+  return JSON.parse(text) as Photo;
+}
