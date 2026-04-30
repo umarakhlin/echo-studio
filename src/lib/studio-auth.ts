@@ -21,12 +21,61 @@ export function normalizeStudioUsername(input: string): string | null {
   return t;
 }
 
-/** סיסמה כפי שמוגדרת ב-STUDIO_USER_<שם_באותיות_גדולות> */
+/**
+ * משתמשי סטודיו ממחרוזת JSON אחת (מומלץ ב-Vercel — כל שם חדש בלי שינוי קוד).
+ * דוגמה: STUDIO_USERS={"uma":"הסיסמה","noa_klein":"אחרת"}
+ */
+function studioUsersFromJson(): Map<string, string> {
+  const raw = process.env.STUDIO_USERS?.trim();
+  const map = new Map<string, string>();
+  if (!raw) return map;
+  try {
+    const obj = JSON.parse(raw) as unknown;
+    if (!obj || typeof obj !== "object" || Array.isArray(obj)) return map;
+    for (const [k, val] of Object.entries(obj)) {
+      const user = normalizeStudioUsername(k);
+      if (user && typeof val === "string" && val.trim().length >= 6) {
+        map.set(user, val.trim());
+      }
+    }
+  } catch {
+    /* פורמט לא תקין — מתעלמים */
+  }
+  return map;
+}
+
+/**
+ * סיסמה לפי STUDIO_USER_<שם> ב-.env.
+ * ב-Next.js גישה מסוג process.env[מפתח_דינמי] לא נטענת בפרודקשן אחרי build —
+ * לכן כל משתמש legacy חייב case מפורש או STUDIO_USERS למעלה.
+ */
+function legacyStudioPasswordFromExplicitEnv(
+  normalizedUsername: string
+): string | null {
+  const pick = (s: string | undefined) =>
+    s != null && String(s).trim() !== "" ? String(s).trim() : null;
+
+  switch (normalizedUsername.toUpperCase()) {
+    case "UMA":
+      return pick(process.env.STUDIO_USER_UMA);
+    case "STUDIO":
+      return pick(process.env.STUDIO_USER_STUDIO);
+    case "SARA":
+      return pick(process.env.STUDIO_USER_SARA);
+    case "NOA":
+      return pick(process.env.STUDIO_USER_NOA);
+    case "NOA_KLEIN":
+      return pick(process.env.STUDIO_USER_NOA_KLEIN);
+    default:
+      return null;
+  }
+}
+
+/** סיסמה כפי שב-STUDIO_USERS או ב-STUDIO_USER_* (מפורש בקוד) */
 export function getStudioPasswordForUser(normalizedUsername: string): string | null {
-  const envKey = `STUDIO_USER_${normalizedUsername.toUpperCase()}`;
-  const v = process.env[envKey];
-  if (!v || !String(v).trim()) return null;
-  return String(v);
+  const fromJson = studioUsersFromJson().get(normalizedUsername);
+  if (fromJson) return fromJson;
+  return legacyStudioPasswordFromExplicitEnv(normalizedUsername);
 }
 
 export function verifyStudioCredentials(
