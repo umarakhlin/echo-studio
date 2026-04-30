@@ -7,8 +7,14 @@ import { Images, Star } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useBlobUrl } from "@/lib/blob-url";
 import { cn } from "@/lib/cn";
+import { getDataBackendMode } from "@/lib/data-backend";
 import { getDB } from "@/lib/db/schema";
-import type { Photo, Project } from "@/lib/db";
+import {
+  listPhotosByProject,
+  listProjects,
+  type Photo,
+  type Project,
+} from "@/lib/db";
 
 export function GalleryClient() {
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -20,17 +26,38 @@ export function GalleryClient() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const db = await getDB();
-      const [ph, pr] = await Promise.all([
-        db.getAll("photos"),
-        db.getAll("projects"),
-      ]);
-      if (cancelled) return;
-      setPhotos(
-        ph.sort((a, b) => b.createdAt - a.createdAt) // החדשות קודם
-      );
-      setProjects(pr.sort((a, b) => b.updatedAt - a.updatedAt));
-      setLoading(false);
+      try {
+        if (getDataBackendMode() === "cloud") {
+          const pr = await listProjects();
+          const all: Photo[] = [];
+          for (const p of pr) {
+            all.push(...(await listPhotosByProject(p.id)));
+          }
+          if (cancelled) return;
+          all.sort((a, b) => b.createdAt - a.createdAt);
+          setPhotos(all);
+          setProjects(pr.sort((a, b) => b.updatedAt - a.updatedAt));
+        } else {
+          const db = await getDB();
+          const [ph, pr] = await Promise.all([
+            db.getAll("photos"),
+            db.getAll("projects"),
+          ]);
+          if (cancelled) return;
+          setPhotos(
+            ph.sort((a, b) => b.createdAt - a.createdAt) // החדשות קודם
+          );
+          setProjects(pr.sort((a, b) => b.updatedAt - a.updatedAt));
+        }
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setPhotos([]);
+          setProjects([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;

@@ -602,17 +602,19 @@ export async function cloudReorderPhotos(albumId: string, orderedIds: string[]):
 
 export async function cloudGetDashboardStats(): Promise<DashboardStats> {
   const sb = supabaseAdmin();
-  const [clientsC, projects, photos] = await Promise.all([
+  const [clientsC, projects, photosMeta] = await Promise.all([
     sb.from("echo_clients").select("*", { count: "exact", head: true }),
     sb.from("echo_projects").select("*"),
-    sb.from("echo_photos").select("*"),
+    sb.from("echo_photos").select("starred"),
   ]);
   if (clientsC.error) throw new Error(clientsC.error.message);
   if (projects.error) throw new Error(projects.error.message);
-  if (photos.error) throw new Error(photos.error.message);
+  if (photosMeta.error) throw new Error(photosMeta.error.message);
 
   const plist = (projects.data ?? []).map((r) => rowToProject(r as Record<string, unknown>));
-  const phlist = (photos.data ?? []).map((r) => rowToPhoto(r as Record<string, unknown>));
+  const stars = (photosMeta.data ?? []) as { starred: boolean }[];
+  const photosCount = stars.length;
+  const starredCount = stars.filter((r) => r.starred).length;
 
   const byStatus = projectStatusOrder.reduce<Record<ProjectStatus, number>>(
     (acc, s) => {
@@ -629,8 +631,8 @@ export async function cloudGetDashboardStats(): Promise<DashboardStats> {
     clientsCount: clientsC.count ?? 0,
     projectsCount: plist.length,
     activeProjects: plist.filter((p) => p.status !== "delivered").length,
-    photosCount: phlist.length,
-    starredCount: phlist.filter((p) => p.starred).length,
+    photosCount,
+    starredCount,
     byStatus,
   };
 }
