@@ -1,0 +1,150 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ================================================================
+   Echo / אקו — שכבת בסיס עיצובית
+   הצבעים והפונטים מוגדרים גם ב-tailwind.config.ts
+   כאן: משתני CSS, אסתטיקה גלובלית, RTL, וטיפוגרפיה.
+   ================================================================ */
+
+:root {
+  --color-eggplant: #4a2545;
+  --color-cream: #faf7f2;
+  --color-ink: #2a1f2d;
+  --color-gold: #c9a961;
+
+  --shadow-soft: 0 1px 2px rgba(42, 31, 45, 0.06),
+    0 8px 24px rgba(42, 31, 45, 0.08);
+
+  color-scheme: light;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-heebo), system-ui, -apple-system, "Segoe UI", Arial,
+    sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-image: radial-gradient(
+      1200px 600px at 10% -10%,
+      rgba(201, 169, 97, 0.1),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 500px at 100% 110%,
+      rgba(74, 37, 69, 0.08),
+      transparent 55%
+    );
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* בחירת טקסט בצבעי המותג */
+::selection {
+  background: rgba(74, 37, 69, 0.2);
+  color: var(--color-ink);
+}
+
+/* טבעת מיקוד נגישה ועקבית */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(201, 169, 97, 0.55);
+  border-radius: 0.5rem;
+}
+
+/* טיפוגרפיה למסכי "כריכה" - שם הסטודיו ולוגו */
+.font-display {
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  letter-spacing: 0.01em;
+}
+
+/* כותרות ב-RTL: מספרים בעברית נראים טוב יותר עם אלה */
+h1,
+h2,
+h3,
+h4 {
+  font-feature-settings: "ss01", "kern";
+}
+
+/* קומפוננטה: כפתור עיקרי */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5
+           font-medium text-sm transition-all duration-200
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60
+           disabled:opacity-50 disabled:cursor-not-allowed select-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-eggplant text-cream shadow-soft
+           hover:bg-eggplant-700 hover:shadow-md
+           active:translate-y-[1px];
+  }
+
+  .btn-secondary {
+    @apply btn bg-cream text-eggplant border border-eggplant/15
+           hover:bg-cream-200 hover:border-eggplant/30;
+  }
+
+  .btn-ghost {
+    @apply btn text-ink hover:bg-cream-200;
+  }
+
+  .btn-gold {
+    @apply btn bg-gold text-ink shadow-soft hover:bg-gold-500 active:translate-y-[1px];
+  }
+
+  /* קומפוננטה: כרטיס */
+  .card {
+    @apply bg-white/80 backdrop-blur-sm rounded-2xl border border-eggplant/10
+           shadow-soft;
+  }
+
+  /* קומפוננטה: שדה קלט */
+  .input {
+    @apply w-full rounded-xl bg-white border border-eggplant/15 px-4 py-3
+           text-ink placeholder-ink-muted/60
+           outline-none transition
+           focus:border-eggplant/40 focus:ring-2 focus:ring-gold/40;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-ink-soft mb-1.5;
+  }
+
+  /* קישוט וינטג' - קו זהוב מנוקד */
+  .vintage-divider {
+    @apply flex items-center gap-3 text-gold-500;
+  }
+  .vintage-divider::before,
+  .vintage-divider::after {
+    content: "";
+    @apply h-px flex-1 bg-gradient-to-l from-transparent via-gold-300 to-transparent;
+  }
+}
+
+/* גלילה: ידידותית לעין */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(74, 37, 69, 0.18);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(74, 37, 69, 0.32);
+}
