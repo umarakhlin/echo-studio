@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Images, Star } from "lucide-react";
+import { Images, PencilLine, Star } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PhotoEditDialog } from "@/components/admin/PhotoEditDialog";
 import { useBlobUrl } from "@/lib/blob-url";
 import { cn } from "@/lib/cn";
 import { getDataBackendMode } from "@/lib/data-backend";
@@ -22,6 +23,7 @@ export function GalleryClient() {
   const [filter, setFilter] = useState<"all" | "starred">("all");
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
+  const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,11 +156,21 @@ export function GalleryClient() {
               <GalleryThumb
                 photo={photo}
                 project={projectsById.get(photo.projectId)}
+                onEdit={() => setEditingPhoto(photo)}
               />
             </li>
           ))}
         </ul>
       )}
+
+      <PhotoEditDialog
+        photo={editingPhoto}
+        open={editingPhoto !== null}
+        onClose={() => setEditingPhoto(null)}
+        onSaved={(p) =>
+          setPhotos((prev) => prev.map((x) => (x.id === p.id ? p : x)))
+        }
+      />
     </div>
   );
 }
@@ -166,50 +178,66 @@ export function GalleryClient() {
 function GalleryThumb({
   photo,
   project,
+  onEdit,
 }: {
   photo: Photo;
   project?: Project;
+  onEdit: () => void;
 }) {
   const blobUrl = useBlobUrl(photo.thumbnailBlob ?? photo.blob);
   const url = photo.thumbnailDisplayUrl ?? photo.displayUrl ?? blobUrl ?? null;
 
   return (
-    <Link
-      href={
-        project
-          ? `/admin/projects/${project.id}/albums/${photo.albumId}`
-          : "#"
-      }
-      className="group block overflow-hidden rounded-xl bg-cream-300 shadow-soft border border-eggplant/10"
-    >
-      <div className="relative aspect-[4/5]">
-        {url && (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={url}
-            alt={photo.fileName}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-          />
-        )}
-        {photo.starred && (
-          <span className="absolute top-2 left-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gold-400 text-white">
-            <Star className="h-3.5 w-3.5 fill-current" />
+    <div className="group relative overflow-hidden rounded-xl bg-cream-300 shadow-soft border border-eggplant/10">
+      <Link
+        href={
+          project
+            ? `/admin/projects/${project.id}/albums/${photo.albumId}`
+            : "#"
+        }
+        className="block"
+      >
+        <div className="relative aspect-[4/5]">
+          {url && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={url}
+              alt={photo.fileName}
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            />
+          )}
+          {photo.starred && (
+            <span className="absolute top-2 left-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gold-400 text-white">
+              <Star className="h-3.5 w-3.5 fill-current" />
+            </span>
+          )}
+          <span
+            className="absolute top-2 right-2 rounded-full bg-white/90 px-2 py-0.5 font-mono text-xs text-eggplant"
+            dir="ltr"
+          >
+            #{String(photo.serialNumber).padStart(3, "0")}
           </span>
-        )}
-        <span
-          className="absolute top-2 right-2 rounded-full bg-white/90 px-2 py-0.5 font-mono text-xs text-eggplant"
-          dir="ltr"
-        >
-          #{String(photo.serialNumber).padStart(3, "0")}
-        </span>
-      </div>
-      <div className="px-2.5 py-1.5">
-        <p className="truncate text-[11px] text-ink-muted">
-          {project?.title ?? "—"}
-        </p>
-      </div>
-    </Link>
+        </div>
+        <div className="px-2.5 py-1.5">
+          <p className="truncate text-[11px] text-ink-muted">
+            {project?.title ?? "—"}
+          </p>
+        </div>
+      </Link>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onEdit();
+        }}
+        aria-label="עריכת פרטי תמונה"
+        className="absolute top-10 right-2 inline-flex h-7 w-7 items-center justify-center rounded-full border border-eggplant/15 bg-white/90 text-eggplant opacity-0 shadow-soft transition-opacity hover:bg-white group-hover:opacity-100"
+      >
+        <PencilLine className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }
 

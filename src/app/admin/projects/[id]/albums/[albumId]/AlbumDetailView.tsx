@@ -11,6 +11,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/Toast";
 import { PhotoTile } from "@/components/admin/PhotoTile";
+import { PhotoEditDialog } from "@/components/admin/PhotoEditDialog";
 import { PhotoUploader } from "@/components/admin/PhotoUploader";
 import { Input } from "@/components/ui/Input";
 import {
@@ -45,6 +46,7 @@ export function AlbumDetailView({
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [savingDetails, setSavingDetails] = useState(false);
+  const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
 
   async function refresh() {
     const [p, a, ph] = await Promise.all([
@@ -297,12 +299,22 @@ export function AlbumDetailView({
                   photo={photo}
                   onToggleStar={onToggleStar}
                   onDelete={onDeletePhoto}
+                  onEdit={(p) => setEditingPhoto(p)}
                 />
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      <PhotoEditDialog
+        photo={editingPhoto}
+        open={editingPhoto !== null}
+        onClose={() => setEditingPhoto(null)}
+        onSaved={(updated) =>
+          setPhotos((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
+        }
+      />
 
       <ConfirmDialog
         open={confirmDelete}

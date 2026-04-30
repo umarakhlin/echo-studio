@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Star, Trash2 } from "lucide-react";
+import { PencilLine, Star, Trash2 } from "lucide-react";
 
 import { useBlobUrl } from "@/lib/blob-url";
 import { cn } from "@/lib/cn";
@@ -12,9 +12,11 @@ interface Props {
   starredFilter?: boolean;
   onToggleStar: (photo: Photo) => Promise<void> | void;
   onDelete: (photo: Photo) => Promise<void> | void;
+  /** עריכת מטא־דאטה (שם, תאריך, סיפור, אנשים) אחרי שמירה */
+  onEdit?: (photo: Photo) => void;
 }
 
-export function PhotoTile({ photo, onToggleStar, onDelete }: Props) {
+export function PhotoTile({ photo, onToggleStar, onDelete, onEdit }: Props) {
   const blobUrl = useBlobUrl(photo.thumbnailBlob ?? photo.blob);
   const url =
     photo.thumbnailDisplayUrl ?? photo.displayUrl ?? blobUrl ?? null;
@@ -77,6 +79,21 @@ export function PhotoTile({ photo, onToggleStar, onDelete }: Props) {
             className={cn("h-3.5 w-3.5", photo.starred && "fill-current")}
           />
         </button>
+
+        {onEdit && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onEdit(photo);
+            }}
+            aria-label="עריכת פרטי תמונה"
+            className="absolute bottom-2 right-2 inline-flex h-7 w-7 items-center justify-center rounded-full border border-eggplant/15 bg-white/85 text-eggplant opacity-0 transition-all hover:bg-white group-hover:opacity-100"
+          >
+            <PencilLine className="h-3.5 w-3.5" />
+          </button>
+        )}
 
         {/* מחיקה */}
         <button
