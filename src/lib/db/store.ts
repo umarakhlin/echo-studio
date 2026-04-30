@@ -1,15 +1,11 @@
 /**
  * ניתוב מצב נתונים: IndexedDB מקומי או Supabase דרך /api/studio-data.
+ * מודולי IndexedDB נטענים רק במצב מקומי (`import()` דינמי), כדי שלא ייטענו לדפדפן במצב ענן.
  */
 
 import { getDataBackendMode } from "@/lib/data-backend";
 
-import * as localAlbums from "./albums";
-import * as localClients from "./clients";
 import { studioOp, uploadStudioPhoto } from "./cloudFetch";
-import * as localPhotos from "./photos";
-import * as localProjects from "./projects";
-import * as localStats from "./stats";
 import type { Album, Client, DashboardStats, Photo, Project, ProjectStatus } from "./types";
 import { projectStatusOrder } from "./types";
 
@@ -24,7 +20,7 @@ export async function listClients(): Promise<Client[]> {
     const r = await cloud<unknown>("listClients");
     return Array.isArray(r) ? (r as Client[]) : [];
   }
-  return localClients.listClients();
+  return (await import("./clients")).listClients();
 }
 
 export async function getClient(id: string): Promise<Client | undefined> {
@@ -32,14 +28,14 @@ export async function getClient(id: string): Promise<Client | undefined> {
     const r = await cloud<Client | null>("getClient", { id });
     return r ?? undefined;
   }
-  return localClients.getClient(id);
+  return (await import("./clients")).getClient(id);
 }
 
 export async function createClient(
   input: Omit<Client, "id" | "createdAt" | "updatedAt">
 ): Promise<Client> {
   if (getDataBackendMode() === "cloud") return cloud("createClient", { input });
-  return localClients.createClient(input);
+  return (await import("./clients")).createClient(input);
 }
 
 export async function updateClient(
@@ -47,7 +43,7 @@ export async function updateClient(
   patch: Partial<Omit<Client, "id" | "createdAt">>
 ): Promise<Client> {
   if (getDataBackendMode() === "cloud") return cloud("updateClient", { id, patch });
-  return localClients.updateClient(id, patch);
+  return (await import("./clients")).updateClient(id, patch);
 }
 
 export async function deleteClient(id: string): Promise<void> {
@@ -55,7 +51,7 @@ export async function deleteClient(id: string): Promise<void> {
     await cloud("deleteClient", { id });
     return;
   }
-  return localClients.deleteClient(id);
+  return (await import("./clients")).deleteClient(id);
 }
 
 export async function listProjects(): Promise<Project[]> {
@@ -63,7 +59,7 @@ export async function listProjects(): Promise<Project[]> {
     const r = await cloud<unknown>("listProjects");
     return Array.isArray(r) ? (r as Project[]) : [];
   }
-  return localProjects.listProjects();
+  return (await import("./projects")).listProjects();
 }
 
 export async function listProjectsByClient(clientId: string): Promise<Project[]> {
@@ -71,7 +67,7 @@ export async function listProjectsByClient(clientId: string): Promise<Project[]>
     const r = await cloud<unknown>("listProjectsByClient", { clientId });
     return Array.isArray(r) ? (r as Project[]) : [];
   }
-  return localProjects.listProjectsByClient(clientId);
+  return (await import("./projects")).listProjectsByClient(clientId);
 }
 
 export async function getProject(id: string): Promise<Project | undefined> {
@@ -79,7 +75,7 @@ export async function getProject(id: string): Promise<Project | undefined> {
     const r = await cloud<Project | null>("getProject", { id });
     return r ?? undefined;
   }
-  return localProjects.getProject(id);
+  return (await import("./projects")).getProject(id);
 }
 
 /** נתוני דף אלבום ללקוח — ללא סשן סטודיו (רק במצב ענן). */
@@ -116,7 +112,7 @@ export async function getProjectByCode(code: string): Promise<Project | undefine
     const page = await fetchPublicAlbumPage(code);
     return page?.project;
   }
-  return localProjects.getProjectByCode(code);
+  return (await import("./projects")).getProjectByCode(code);
 }
 
 export async function createProject(
@@ -126,7 +122,7 @@ export async function createProject(
   }
 ): Promise<Project> {
   if (getDataBackendMode() === "cloud") return cloud("createProject", { input });
-  return localProjects.createProject(input);
+  return (await import("./projects")).createProject(input);
 }
 
 export async function updateProject(
@@ -134,13 +130,13 @@ export async function updateProject(
   patch: Partial<Omit<Project, "id" | "createdAt">>
 ): Promise<Project> {
   if (getDataBackendMode() === "cloud") return cloud("updateProject", { id, patch });
-  return localProjects.updateProject(id, patch);
+  return (await import("./projects")).updateProject(id, patch);
 }
 
 export async function setProjectStatus(id: string, status: ProjectStatus): Promise<Project> {
   if (getDataBackendMode() === "cloud")
     return cloud("setProjectStatus", { id, status });
-  return localProjects.setProjectStatus(id, status);
+  return (await import("./projects")).setProjectStatus(id, status);
 }
 
 export async function deleteProject(id: string): Promise<void> {
@@ -148,7 +144,7 @@ export async function deleteProject(id: string): Promise<void> {
     await cloud("deleteProject", { id });
     return;
   }
-  return localProjects.deleteProject(id);
+  return (await import("./projects")).deleteProject(id);
 }
 
 export async function listAlbumsByProject(projectId: string): Promise<Album[]> {
@@ -156,7 +152,7 @@ export async function listAlbumsByProject(projectId: string): Promise<Album[]> {
     const r = await cloud<unknown>("listAlbumsByProject", { projectId });
     return Array.isArray(r) ? (r as Album[]) : [];
   }
-  return localAlbums.listAlbumsByProject(projectId);
+  return (await import("./albums")).listAlbumsByProject(projectId);
 }
 
 export async function getAlbum(id: string): Promise<Album | undefined> {
@@ -164,14 +160,14 @@ export async function getAlbum(id: string): Promise<Album | undefined> {
     const r = await cloud<Album | null>("getAlbum", { id });
     return r ?? undefined;
   }
-  return localAlbums.getAlbum(id);
+  return (await import("./albums")).getAlbum(id);
 }
 
 export async function createAlbum(
   input: Omit<Album, "id" | "order" | "createdAt" | "updatedAt"> & { order?: number }
 ): Promise<Album> {
   if (getDataBackendMode() === "cloud") return cloud("createAlbum", { input });
-  return localAlbums.createAlbum(input);
+  return (await import("./albums")).createAlbum(input);
 }
 
 export async function updateAlbum(
@@ -179,7 +175,7 @@ export async function updateAlbum(
   patch: Partial<Omit<Album, "id" | "createdAt">>
 ): Promise<Album> {
   if (getDataBackendMode() === "cloud") return cloud("updateAlbum", { id, patch });
-  return localAlbums.updateAlbum(id, patch);
+  return (await import("./albums")).updateAlbum(id, patch);
 }
 
 export async function deleteAlbum(id: string): Promise<void> {
@@ -187,13 +183,13 @@ export async function deleteAlbum(id: string): Promise<void> {
     await cloud("deleteAlbum", { id });
     return;
   }
-  return localAlbums.deleteAlbum(id);
+  return (await import("./albums")).deleteAlbum(id);
 }
 
 export async function ensureDefaultAlbum(projectId: string): Promise<Album> {
   if (getDataBackendMode() === "cloud")
     return cloud("ensureDefaultAlbum", { projectId });
-  return localAlbums.ensureDefaultAlbum(projectId);
+  return (await import("./albums")).ensureDefaultAlbum(projectId);
 }
 
 export async function listPhotosByAlbum(albumId: string): Promise<Photo[]> {
@@ -201,7 +197,7 @@ export async function listPhotosByAlbum(albumId: string): Promise<Photo[]> {
     const r = await cloud<unknown>("listPhotosByAlbum", { albumId });
     return Array.isArray(r) ? (r as Photo[]) : [];
   }
-  return localPhotos.listPhotosByAlbum(albumId);
+  return (await import("./photos")).listPhotosByAlbum(albumId);
 }
 
 export async function listPhotosByProject(projectId: string): Promise<Photo[]> {
@@ -209,7 +205,7 @@ export async function listPhotosByProject(projectId: string): Promise<Photo[]> {
     const r = await cloud<unknown>("listPhotosByProject", { projectId });
     return Array.isArray(r) ? (r as Photo[]) : [];
   }
-  return localPhotos.listPhotosByProject(projectId);
+  return (await import("./photos")).listPhotosByProject(projectId);
 }
 
 export async function getPhoto(id: string): Promise<Photo | undefined> {
@@ -217,12 +213,14 @@ export async function getPhoto(id: string): Promise<Photo | undefined> {
     const r = await cloud<Photo | null>("getPhoto", { id });
     return r ?? undefined;
   }
-  return localPhotos.getPhoto(id);
+  return (await import("./photos")).getPhoto(id);
 }
 
-export async function addPhotoToAlbum(
-  input: Parameters<typeof localPhotos.addPhotoToAlbum>[0]
-): Promise<Photo> {
+export async function addPhotoToAlbum(input: {
+  albumId: string;
+  projectId: string;
+  file: File;
+}): Promise<Photo> {
   if (getDataBackendMode() === "cloud") {
     return uploadStudioPhoto({
       albumId: input.albumId,
@@ -230,12 +228,16 @@ export async function addPhotoToAlbum(
       file: input.file,
     });
   }
-  return localPhotos.addPhotoToAlbum(input);
+  return (await import("./photos")).addPhotoToAlbum(input);
 }
 
-export async function addPhotoToAlbumFromBlob(
-  input: Parameters<typeof localPhotos.addPhotoToAlbumFromBlob>[0]
-): Promise<Photo> {
+export async function addPhotoToAlbumFromBlob(input: {
+  albumId: string;
+  projectId: string;
+  blob: Blob;
+  fileName: string;
+  mimeType?: string;
+}): Promise<Photo> {
   if (getDataBackendMode() === "cloud") {
     const mime = (input.mimeType ?? input.blob.type) || "image/jpeg";
     const file = new File([input.blob], input.fileName, { type: mime });
@@ -245,20 +247,20 @@ export async function addPhotoToAlbumFromBlob(
       file,
     });
   }
-  return localPhotos.addPhotoToAlbumFromBlob(input);
+  return (await import("./photos")).addPhotoToAlbumFromBlob(input);
 }
 
 export async function updatePhoto(
   id: string,
-  patch: Parameters<typeof localPhotos.updatePhoto>[1]
+  patch: Partial<Omit<Photo, "id" | "createdAt" | "blob" | "thumbnailBlob">>
 ): Promise<Photo> {
   if (getDataBackendMode() === "cloud") return cloud("updatePhoto", { id, patch });
-  return localPhotos.updatePhoto(id, patch);
+  return (await import("./photos")).updatePhoto(id, patch);
 }
 
 export async function toggleStarPhoto(id: string): Promise<Photo> {
   if (getDataBackendMode() === "cloud") return cloud("toggleStarPhoto", { id });
-  return localPhotos.toggleStarPhoto(id);
+  return (await import("./photos")).toggleStarPhoto(id);
 }
 
 export async function deletePhoto(id: string): Promise<void> {
@@ -266,7 +268,7 @@ export async function deletePhoto(id: string): Promise<void> {
     await cloud("deletePhoto", { id });
     return;
   }
-  return localPhotos.deletePhoto(id);
+  return (await import("./photos")).deletePhoto(id);
 }
 
 export async function reorderPhotos(albumId: string, orderedIds: string[]): Promise<void> {
@@ -274,7 +276,7 @@ export async function reorderPhotos(albumId: string, orderedIds: string[]): Prom
     await cloud("reorderPhotos", { albumId, orderedIds });
     return;
   }
-  return localPhotos.reorderPhotos(albumId, orderedIds);
+  return (await import("./photos")).reorderPhotos(albumId, orderedIds);
 }
 
 function isPlainRecord(v: unknown): v is Record<string, unknown> {
@@ -315,5 +317,5 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     }
     return emptyDashboardStats();
   }
-  return localStats.getDashboardStats();
+  return (await import("./stats")).getDashboardStats();
 }

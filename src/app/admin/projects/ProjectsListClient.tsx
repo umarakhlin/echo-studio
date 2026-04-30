@@ -12,12 +12,14 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import {
   listClients,
   listProjects,
+} from "@/lib/db/store";
+import {
   projectStatusLabels,
   projectStatusOrder,
   type Client,
   type Project,
   type ProjectStatus,
-} from "@/lib/db";
+} from "@/lib/db/types";
 import { formatISODateHe, isProjectTargetOverdue } from "@/lib/calendar";
 
 export function ProjectsListClient() {
@@ -126,7 +128,7 @@ export function ProjectsListClient() {
                 active={statusFilter === s}
                 onClick={() => setStatusFilter(s)}
               >
-                {projectStatusLabels[s]}
+                {projectStatusLabels[s] ?? s}
               </FilterButton>
             ))}
           </div>

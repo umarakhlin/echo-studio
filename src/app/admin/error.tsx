@@ -29,14 +29,27 @@ export default function AdminError({
         במק) או סגירת הטאב ופתיחת האתר מחדש.
       </p>
       {error?.message && (
-        <p
-          className="mt-4 max-w-full break-words rounded-lg bg-cream-200 px-3 py-2 text-xs text-ink-muted font-mono text-right"
-          dir="ltr"
-          title={error.message}
-        >
-          {error.name && error.name !== "Error" ? `${error.name}: ` : ""}
-          {error.message}
-        </p>
+        <details className="mt-4 max-w-full text-right">
+          <summary className="cursor-pointer text-xs text-ink-muted">
+            פרטי שגיאה (לדיווח)
+          </summary>
+          <p
+            className="mt-2 break-words rounded-lg bg-cream-200 px-3 py-2 text-xs text-ink-muted font-mono"
+            dir="ltr"
+            title={error.message}
+          >
+            {error.name && error.name !== "Error" ? `${error.name}: ` : ""}
+            {error.message}
+          </p>
+          {error.stack && (
+            <pre
+              className="mt-2 max-h-40 max-w-full overflow-auto break-all rounded-lg bg-white/80 px-3 py-2 text-[10px] text-ink-muted"
+              dir="ltr"
+            >
+              {error.stack}
+            </pre>
+          )}
+        </details>
       )}
       <div className="mt-8 flex flex-wrap justify-center gap-3">
         <Button type="button" onClick={() => reset()}>
