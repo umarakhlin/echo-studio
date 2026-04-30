@@ -86,9 +86,15 @@ export function ClientAlbumView({ code }: { code: string }) {
         <h1 className="font-display text-3xl font-semibold text-eggplant">
           האלבום לא נמצא
         </h1>
-        <p className="mt-3 max-w-md text-ink-soft">
+        <p className="mt-3 max-w-md text-ink-soft text-sm leading-relaxed">
           הקוד <span dir="ltr" className="font-mono">{code}</span> אינו תואם
-          לאלבום פעיל. בדקו את הקישור שקיבלתם מ-Echo.
+          לאלבום פעיל <strong className="text-ink-soft">בדפדפן ובמכשיר הזה</strong>.
+          הנתונים נשמרים מקומית — אם יצרת את הפרויקט במחשב אחר, ב־Safari אחר או
+          בלי שחזור גיבוי, הכניסה כאן לא תמצא אותו.
+        </p>
+        <p className="mt-3 max-w-md text-xs text-ink-muted leading-relaxed">
+          פתרון לצוות: להיכנס לסטודיו ממכשיר עם הנתונים → גיבוי — או לשחזר ZIP
+          בדפדפן הזה. ללקוח: וודאו שהקישור והקוד מהודעת Echo מדויקים.
         </p>
         <Link
           href="/login"
