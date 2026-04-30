@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Images, ScanLine, Star, Trash2 } from "lucide-react";
+import { ChevronRight, Images, PencilLine, ScanLine, Star, StickyNote, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { ButtonLink } from "@/components/ui/ButtonLink";
@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/Toast";
 import { PhotoTile } from "@/components/admin/PhotoTile";
 import { PhotoUploader } from "@/components/admin/PhotoUploader";
+import { Input } from "@/components/ui/Input";
 import {
   deleteAlbum,
   deletePhoto,
@@ -19,6 +20,7 @@ import {
   getProject,
   listPhotosByAlbum,
   toggleStarPhoto,
+  updateAlbum,
   type Album,
   type Photo,
   type Project,
@@ -40,6 +42,9 @@ export function AlbumDetailView({
   const [filter, setFilter] = useState<"all" | "starred">("all");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [savingDetails, setSavingDetails] = useState(false);
 
   async function refresh() {
     const [p, a, ph] = await Promise.all([
@@ -64,6 +69,13 @@ export function AlbumDetailView({
       setProject(p ?? null);
       setAlbum(a ?? null);
       setPhotos(ph);
+      if (a) {
+        setEditTitle(a.title);
+        setEditDescription(a.description ?? "");
+      } else {
+        setEditTitle("");
+        setEditDescription("");
+      }
     })();
     return () => {
       cancelled = true;
@@ -99,6 +111,30 @@ export function AlbumDetailView({
     } finally {
       setDeleting(false);
       setConfirmDelete(false);
+    }
+  }
+
+  async function handleSaveAlbumDetails() {
+    if (!album) return;
+    const title = editTitle.trim();
+    if (!title) {
+      toast.error("שם האלבום נדרש.");
+      return;
+    }
+    try {
+      setSavingDetails(true);
+      const updated = await updateAlbum(album.id, {
+        title,
+        description: editDescription.trim() || undefined,
+      });
+      setAlbum(updated);
+      toast.success("פרטי האלבום עודכנו.");
+      router.refresh();
+    } catch (e) {
+      console.error(e);
+      toast.error("שמירה נכשלה — נסי שוב.");
+    } finally {
+      setSavingDetails(false);
     }
   }
 
@@ -156,6 +192,53 @@ export function AlbumDetailView({
           </Button>
         </div>
       </header>
+
+      <section
+        id="edit-album"
+        className="card mt-6 scroll-mt-28 border-2 border-gold-500/35 bg-cream-100/40 p-5 shadow-soft"
+      >
+        <div className="flex items-center gap-2 text-eggplant">
+          <PencilLine className="h-5 w-5 shrink-0 text-gold-700" />
+          <h2 className="font-display text-lg font-semibold">
+            עריכת שם והערות לאלבום
+          </h2>
+        </div>
+        <p className="mt-1 text-xs text-ink-muted">
+          שם האלבום משמש גם בתצוגת הלקוח כשיש כמה אלבומים; שדה ההערות לשימוש
+          פנימי בלבד.
+        </p>
+        <div className="mt-4 max-w-xl space-y-4">
+          <Input
+            label="שם האלבום"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            placeholder='למשל "חתונת ההורים, 1962"'
+          />
+          <div>
+            <label className="label">
+              <span className="inline-flex items-center gap-1.5">
+                <StickyNote className="h-4 w-4 text-ink-muted" />
+                הערות
+              </span>
+            </label>
+            <textarea
+              rows={3}
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              placeholder="הקשר לאלבום, משימות, תזכורות לצוות…"
+              className="input resize-y"
+            />
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            loading={savingDetails}
+            onClick={handleSaveAlbumDetails}
+          >
+            שמירת פרטי אלבום
+          </Button>
+        </div>
+      </section>
 
       <section className="mt-6">
         <PhotoUploader

@@ -436,7 +436,7 @@ ${clientLink}
             {albums.map((a) => (
               <li key={a.id}>
                 <Link
-                  href={`/admin/projects/${project.id}/albums/${a.id}`}
+                  href={`/admin/projects/${project.id}/albums/${a.id}#edit-album`}
                   className="card group block px-5 py-4 hover:shadow-md hover:border-eggplant/25 transition-all"
                 >
                   <div className="flex items-center justify-between gap-3">
