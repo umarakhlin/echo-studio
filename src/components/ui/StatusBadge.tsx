@@ -1,5 +1,5 @@
 import { cn } from "@/lib/cn";
-import { projectStatusLabels, type ProjectStatus } from "@/lib/db/types";
+import { projectStatusLabels, projectStatusOrder, type ProjectStatus } from "@/lib/db/types";
 
 const styles: Record<ProjectStatus, string> = {
   intake: "bg-cream-300 text-ink-soft border-eggplant/15",
@@ -16,16 +16,21 @@ export function StatusBadge({
   status: ProjectStatus;
   className?: string;
 }) {
+  const safe: ProjectStatus = (projectStatusOrder as readonly string[]).includes(
+    status
+  )
+    ? status
+    : "intake";
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
-        styles[status],
+        styles[safe],
         className
       )}
     >
       <span className="inline-block h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-      {projectStatusLabels[status]}
+      {projectStatusLabels[safe]}
     </span>
   );
 }

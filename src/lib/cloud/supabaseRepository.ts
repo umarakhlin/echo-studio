@@ -14,10 +14,22 @@ import { projectStatusOrder } from "@/lib/db/types";
 import { generateProjectCode } from "@/lib/db/projectSecrets";
 import { ECHO_PHOTOS_BUCKET, getPublicObjectUrl, supabaseAdmin } from "@/lib/supabase/admin";
 
+const FALLBACK_STATUS: ProjectStatus = "intake";
+
+function normalizeProjectStatus(raw: unknown): ProjectStatus {
+  if (
+    typeof raw === "string" &&
+    (projectStatusOrder as readonly string[]).includes(raw)
+  ) {
+    return raw as ProjectStatus;
+  }
+  return FALLBACK_STATUS;
+}
+
 function rowToClient(r: Record<string, unknown>): Client {
   return {
-    id: r.id as string,
-    name: r.name as string,
+    id: String(r.id ?? ""),
+    name: String(r.name ?? ""),
     phone: (r.phone as string) ?? undefined,
     email: (r.email as string) ?? undefined,
     address: (r.address as string) ?? undefined,
@@ -29,12 +41,12 @@ function rowToClient(r: Record<string, unknown>): Client {
 
 function rowToProject(r: Record<string, unknown>): Project {
   return {
-    id: r.id as string,
-    clientId: r.client_id as string,
-    code: r.code as string,
+    id: String(r.id ?? ""),
+    clientId: String(r.client_id ?? ""),
+    code: String(r.code ?? ""),
     password: (r.password as string) ?? "",
-    title: r.title as string,
-    status: r.status as ProjectStatus,
+    title: String(r.title ?? ""),
+    status: normalizeProjectStatus(r.status),
     startDate: (r.start_date as string) ?? undefined,
     targetEndDate: (r.target_end_date as string) ?? undefined,
     estimatedPhotos: (r.estimated_photos as number) ?? undefined,
@@ -46,10 +58,10 @@ function rowToProject(r: Record<string, unknown>): Project {
 
 function rowToAlbum(r: Record<string, unknown>): Album {
   return {
-    id: r.id as string,
-    projectId: r.project_id as string,
+    id: String(r.id ?? ""),
+    projectId: String(r.project_id ?? ""),
     parentAlbumId: (r.parent_album_id as string | null) ?? null,
-    title: r.title as string,
+    title: String(r.title ?? ""),
     description: (r.description as string) ?? undefined,
     coverPhotoId: (r.cover_photo_id as string) ?? undefined,
     order: Number(r.sort_order),
@@ -58,26 +70,34 @@ function rowToAlbum(r: Record<string, unknown>): Album {
   };
 }
 
+function normalizePeopleJson(raw: unknown): string[] | undefined {
+  if (raw == null) return undefined;
+  if (Array.isArray(raw) && raw.every((x) => typeof x === "string")) {
+    return raw;
+  }
+  return undefined;
+}
+
 function rowToPhoto(r: Record<string, unknown>): Photo {
-  const storagePath = r.storage_path as string;
-  const thumbPath = r.thumb_path as string;
+  const storagePath = String(r.storage_path ?? "");
+  const thumbPath = String(r.thumb_path ?? "");
   return {
-    id: r.id as string,
-    albumId: r.album_id as string,
-    projectId: r.project_id as string,
-    serialNumber: Number(r.serial_number),
-    fileName: r.file_name as string,
-    mimeType: r.mime_type as string,
+    id: String(r.id ?? ""),
+    albumId: String(r.album_id ?? ""),
+    projectId: String(r.project_id ?? ""),
+    serialNumber: Number(r.serial_number) || 0,
+    fileName: String(r.file_name ?? ""),
+    mimeType: String(r.mime_type ?? "image/jpeg"),
     blob: new Blob(),
     thumbnailBlob: undefined,
-    displayUrl: getPublicObjectUrl(storagePath),
-    thumbnailDisplayUrl: getPublicObjectUrl(thumbPath),
+    displayUrl: storagePath ? getPublicObjectUrl(storagePath) : undefined,
+    thumbnailDisplayUrl: thumbPath ? getPublicObjectUrl(thumbPath) : undefined,
     width: (r.width as number) ?? undefined,
     height: (r.height as number) ?? undefined,
     starred: Boolean(r.starred),
     estimatedDate: (r.estimated_date as string) ?? undefined,
     story: (r.story as string) ?? undefined,
-    people: (r.people as string[] | null) ?? undefined,
+    people: normalizePeopleJson(r.people),
     createdAt: Number(r.created_at),
     updatedAt: Number(r.updated_at),
   };
