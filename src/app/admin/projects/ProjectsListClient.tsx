@@ -30,16 +30,27 @@ export function ProjectsListClient() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [p, c] = await Promise.all([listProjects(), listClients()]);
-      if (cancelled) return;
-      setProjects(p);
-      setClientsById(
-        c.reduce<Record<string, Client>>((acc, item) => {
-          acc[item.id] = item;
-          return acc;
-        }, {})
-      );
-      setLoading(false);
+      try {
+        const [p, c] = await Promise.all([listProjects(), listClients()]);
+        if (cancelled) return;
+        const plist = Array.isArray(p) ? p : [];
+        const clist = Array.isArray(c) ? c : [];
+        setProjects(plist);
+        setClientsById(
+          clist.reduce<Record<string, Client>>((acc, item) => {
+            if (item?.id) acc[item.id] = item;
+            return acc;
+          }, {})
+        );
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setProjects([]);
+          setClientsById({});
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -54,10 +65,12 @@ export function ProjectsListClient() {
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       list = list.filter((p) => {
-        const clientName = clientsById[p.clientId]?.name ?? "";
+        const title = String(p.title ?? "");
+        const code = String(p.code ?? "");
+        const clientName = String(clientsById[p.clientId]?.name ?? "");
         return (
-          p.title.toLowerCase().includes(q) ||
-          p.code.toLowerCase().includes(q) ||
+          title.toLowerCase().includes(q) ||
+          code.toLowerCase().includes(q) ||
           clientName.toLowerCase().includes(q)
         );
       });
@@ -181,7 +194,12 @@ export function ProjectsListClient() {
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-ink-muted">
                       עודכן{" "}
-                      {new Date(p.updatedAt).toLocaleDateString("he-IL")}
+                      {(() => {
+                        const t = Number(p.updatedAt);
+                        return Number.isFinite(t)
+                          ? new Date(t).toLocaleDateString("he-IL")
+                          : "—";
+                      })()}
                     </span>
                     <StatusBadge status={p.status} />
                   </div>

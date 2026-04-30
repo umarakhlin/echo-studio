@@ -24,11 +24,20 @@ export function ClientsListClient() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [c, p] = await Promise.all([listClients(), listProjects()]);
-      if (cancelled) return;
-      setClients(c);
-      setProjects(p);
-      setLoading(false);
+      try {
+        const [c, p] = await Promise.all([listClients(), listProjects()]);
+        if (cancelled) return;
+        setClients(Array.isArray(c) ? c : []);
+        setProjects(Array.isArray(p) ? p : []);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setClients([]);
+          setProjects([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;

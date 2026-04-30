@@ -44,11 +44,13 @@ export function DashboardClient() {
           listClients(),
         ]);
         if (cancelled) return;
+        const pr = Array.isArray(projects) ? projects : [];
+        const cl = Array.isArray(clients) ? clients : [];
         setStats(s);
-        setRecent(projects.slice(0, 5));
+        setRecent(pr.slice(0, 5));
         setClientsById(
-          clients.reduce<Record<string, Client>>((acc, c) => {
-            acc[c.id] = c;
+          cl.reduce<Record<string, Client>>((acc, c) => {
+            if (c?.id) acc[c.id] = c;
             return acc;
           }, {})
         );

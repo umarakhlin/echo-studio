@@ -11,6 +11,7 @@ import * as localPhotos from "./photos";
 import * as localProjects from "./projects";
 import * as localStats from "./stats";
 import type { Album, Client, DashboardStats, Photo, Project, ProjectStatus } from "./types";
+import { projectStatusOrder } from "./types";
 
 export { generatePassword, generateProjectCode } from "./projectSecrets";
 
@@ -19,7 +20,10 @@ async function cloud<T>(op: string, payload: Record<string, unknown> = {}): Prom
 }
 
 export async function listClients(): Promise<Client[]> {
-  if (getDataBackendMode() === "cloud") return cloud("listClients");
+  if (getDataBackendMode() === "cloud") {
+    const r = await cloud<unknown>("listClients");
+    return Array.isArray(r) ? (r as Client[]) : [];
+  }
   return localClients.listClients();
 }
 
@@ -55,13 +59,18 @@ export async function deleteClient(id: string): Promise<void> {
 }
 
 export async function listProjects(): Promise<Project[]> {
-  if (getDataBackendMode() === "cloud") return cloud("listProjects");
+  if (getDataBackendMode() === "cloud") {
+    const r = await cloud<unknown>("listProjects");
+    return Array.isArray(r) ? (r as Project[]) : [];
+  }
   return localProjects.listProjects();
 }
 
 export async function listProjectsByClient(clientId: string): Promise<Project[]> {
-  if (getDataBackendMode() === "cloud")
-    return cloud("listProjectsByClient", { clientId });
+  if (getDataBackendMode() === "cloud") {
+    const r = await cloud<unknown>("listProjectsByClient", { clientId });
+    return Array.isArray(r) ? (r as Project[]) : [];
+  }
   return localProjects.listProjectsByClient(clientId);
 }
 
@@ -143,8 +152,10 @@ export async function deleteProject(id: string): Promise<void> {
 }
 
 export async function listAlbumsByProject(projectId: string): Promise<Album[]> {
-  if (getDataBackendMode() === "cloud")
-    return cloud("listAlbumsByProject", { projectId });
+  if (getDataBackendMode() === "cloud") {
+    const r = await cloud<unknown>("listAlbumsByProject", { projectId });
+    return Array.isArray(r) ? (r as Album[]) : [];
+  }
   return localAlbums.listAlbumsByProject(projectId);
 }
 
@@ -186,14 +197,18 @@ export async function ensureDefaultAlbum(projectId: string): Promise<Album> {
 }
 
 export async function listPhotosByAlbum(albumId: string): Promise<Photo[]> {
-  if (getDataBackendMode() === "cloud")
-    return cloud("listPhotosByAlbum", { albumId });
+  if (getDataBackendMode() === "cloud") {
+    const r = await cloud<unknown>("listPhotosByAlbum", { albumId });
+    return Array.isArray(r) ? (r as Photo[]) : [];
+  }
   return localPhotos.listPhotosByAlbum(albumId);
 }
 
 export async function listPhotosByProject(projectId: string): Promise<Photo[]> {
-  if (getDataBackendMode() === "cloud")
-    return cloud("listPhotosByProject", { projectId });
+  if (getDataBackendMode() === "cloud") {
+    const r = await cloud<unknown>("listPhotosByProject", { projectId });
+    return Array.isArray(r) ? (r as Photo[]) : [];
+  }
   return localPhotos.listPhotosByProject(projectId);
 }
 
@@ -262,7 +277,36 @@ export async function reorderPhotos(albumId: string, orderedIds: string[]): Prom
   return localPhotos.reorderPhotos(albumId, orderedIds);
 }
 
+function emptyDashboardStats(): DashboardStats {
+  const byStatus = projectStatusOrder.reduce<Record<ProjectStatus, number>>(
+    (acc, s) => {
+      acc[s] = 0;
+      return acc;
+    },
+    {} as Record<ProjectStatus, number>
+  );
+  return {
+    clientsCount: 0,
+    projectsCount: 0,
+    activeProjects: 0,
+    photosCount: 0,
+    starredCount: 0,
+    byStatus,
+  };
+}
+
 export async function getDashboardStats(): Promise<DashboardStats> {
-  if (getDataBackendMode() === "cloud") return cloud("getDashboardStats");
+  if (getDataBackendMode() === "cloud") {
+    const r = await cloud<unknown>("getDashboardStats");
+    if (
+      r &&
+      typeof r === "object" &&
+      "byStatus" in r &&
+      typeof (r as DashboardStats).clientsCount === "number"
+    ) {
+      return r as DashboardStats;
+    }
+    return emptyDashboardStats();
+  }
   return localStats.getDashboardStats();
 }

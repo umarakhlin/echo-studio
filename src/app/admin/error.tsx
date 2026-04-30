@@ -30,10 +30,11 @@ export default function AdminError({
       </p>
       {error?.message && (
         <p
-          className="mt-4 max-w-full truncate rounded-lg bg-cream-200 px-3 py-2 text-xs text-ink-muted font-mono"
+          className="mt-4 max-w-full break-words rounded-lg bg-cream-200 px-3 py-2 text-xs text-ink-muted font-mono text-right"
           dir="ltr"
           title={error.message}
         >
+          {error.name && error.name !== "Error" ? `${error.name}: ` : ""}
           {error.message}
         </p>
       )}
