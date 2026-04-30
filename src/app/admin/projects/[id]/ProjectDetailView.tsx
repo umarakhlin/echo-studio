@@ -9,7 +9,9 @@ import {
   ChevronRight,
   Copy,
   ExternalLink,
+  PencilLine,
   Plus,
+  StickyNote,
   Trash2,
 } from "lucide-react";
 
@@ -30,6 +32,7 @@ import {
   projectStatusLabels,
   projectStatusOrder,
   setProjectStatus,
+  updateAlbum,
   updateProject,
   type Album,
   type Client,
@@ -58,6 +61,10 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
   const [editStartDate, setEditStartDate] = useState("");
   const [editTargetEndDate, setEditTargetEndDate] = useState("");
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const [editingAlbumId, setEditingAlbumId] = useState<string | null>(null);
+  const [albumEditTitle, setAlbumEditTitle] = useState("");
+  const [albumEditDesc, setAlbumEditDesc] = useState("");
+  const [savingAlbum, setSavingAlbum] = useState(false);
 
   async function refresh() {
     const p = await getProject(projectId);
@@ -136,6 +143,39 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
     setCreatingAlbum(false);
     toast.success("האלבום נוצר.");
     await refresh();
+  }
+
+  async function handleSaveAlbum(albumId: string) {
+    const title = albumEditTitle.trim();
+    if (!title) {
+      toast.error("שם האלבום נדרש.");
+      return;
+    }
+    try {
+      setSavingAlbum(true);
+      await updateAlbum(albumId, {
+        title,
+        description: albumEditDesc.trim() || undefined,
+      });
+      toast.success("פרטי האלבום נשמרו.");
+      setEditingAlbumId(null);
+      await refresh();
+      router.refresh();
+    } catch (err) {
+      toast.error((err as Error).message ?? "שמירה נכשלה.");
+    } finally {
+      setSavingAlbum(false);
+    }
+  }
+
+  function openAlbumEditor(a: Album) {
+    if (editingAlbumId === a.id) {
+      setEditingAlbumId(null);
+      return;
+    }
+    setEditingAlbumId(a.id);
+    setAlbumEditTitle(a.title);
+    setAlbumEditDesc(a.description ?? "");
   }
 
   async function handleSaveSchedule() {
@@ -378,10 +418,16 @@ ${clientLink}
 
       {/* אלבומים */}
       <section className="mt-8">
-        <div className="mb-3 flex items-end justify-between">
-          <h2 className="font-display text-xl font-semibold text-eggplant">
-            אלבומים
-          </h2>
+        <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="font-display text-xl font-semibold text-eggplant">
+              אלבומים
+            </h2>
+            <p className="mt-1 text-xs text-ink-muted">
+              לשינוי שם או הערות פנימיות — לחצי <strong>עריכה</strong> ליד האלבום.
+              לניהול תמונות — לחצי על האלבום.
+            </p>
+          </div>
           {!creatingAlbum && (
             <button
               type="button"
@@ -435,26 +481,87 @@ ${clientLink}
           <ul className="grid gap-3 sm:grid-cols-2">
             {albums.map((a) => (
               <li key={a.id}>
-                <Link
-                  href={`/admin/projects/${project.id}/albums/${a.id}#edit-album`}
-                  className="card group block px-5 py-4 hover:shadow-md hover:border-eggplant/25 transition-all"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-eggplant">
-                        {a.title}
-                      </p>
-                      {a.description && (
-                        <p className="truncate text-xs text-ink-muted">
-                          {a.description}
+                <div className="card overflow-hidden p-0 border-2 border-eggplant/12">
+                  <div className="flex flex-col sm:flex-row sm:items-stretch">
+                    <Link
+                      href={`/admin/projects/${project.id}/albums/${a.id}`}
+                      className="flex flex-1 items-center gap-3 px-5 py-4 transition-colors hover:bg-cream-100/60 min-w-0"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium text-eggplant">
+                          {a.title}
                         </p>
-                      )}
+                        {a.description && (
+                          <p className="truncate text-xs text-ink-muted">
+                            {a.description}
+                          </p>
+                        )}
+                      </div>
+                      <span className="shrink-0 rounded-full bg-cream-200 px-2.5 py-0.5 text-xs text-ink-soft border border-eggplant/10">
+                        {photosByAlbum[a.id] ?? 0} תמונות
+                      </span>
+                    </Link>
+                    <div className="flex shrink-0 items-center justify-end gap-2 border-t border-eggplant/10 px-3 py-2 sm:border-t-0 sm:border-r sm:flex-col sm:justify-center sm:px-2">
+                      <Button
+                        type="button"
+                        variant={
+                          editingAlbumId === a.id ? "gold" : "secondary"
+                        }
+                        size="sm"
+                        startIcon={<PencilLine className="h-4 w-4" />}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          openAlbumEditor(a);
+                        }}
+                      >
+                        {editingAlbumId === a.id ? "סגירה" : "עריכה"}
+                      </Button>
                     </div>
-                    <span className="shrink-0 rounded-full bg-cream-200 px-2.5 py-0.5 text-xs text-ink-soft border border-eggplant/10">
-                      {photosByAlbum[a.id] ?? 0} תמונות
-                    </span>
                   </div>
-                </Link>
+                  {editingAlbumId === a.id && (
+                    <div className="border-t border-eggplant/10 bg-cream-100/50 px-4 py-4 space-y-3">
+                      <Input
+                        label="שם האלבום"
+                        value={albumEditTitle}
+                        onChange={(e) => setAlbumEditTitle(e.target.value)}
+                      />
+                      <div>
+                        <label className="label">
+                          <span className="inline-flex items-center gap-1.5">
+                            <StickyNote className="h-4 w-4 text-ink-muted" />
+                            הערות (פנימי)
+                          </span>
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={albumEditDesc}
+                          onChange={(e) => setAlbumEditDesc(e.target.value)}
+                          placeholder="תזכורות לצוות, הקשר לאלבום…"
+                          className="input resize-y w-full"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          loading={savingAlbum}
+                          startIcon={<Check className="h-4 w-4" />}
+                          onClick={() => handleSaveAlbum(a.id)}
+                        >
+                          שמירה
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingAlbumId(null)}
+                        >
+                          ביטול
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
