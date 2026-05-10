@@ -12,12 +12,16 @@ export async function studioOp<T>(
   });
   const text = await res.text();
   if (!res.ok) {
+    let msg = text || res.statusText;
     try {
-      const j = JSON.parse(text) as { error?: string };
-      throw new Error(j.error ?? (text || res.statusText));
+      const j = JSON.parse(text) as { error?: string; hint?: string };
+      if (j.error) {
+        msg = j.hint ? `${j.error} — ${j.hint}` : j.error;
+      }
     } catch {
-      throw new Error(text || res.statusText);
+      /* גוף לא JSON */
     }
+    throw new Error(msg);
   }
   if (!text) return undefined as T;
   return JSON.parse(text) as T;
@@ -39,12 +43,14 @@ export async function uploadStudioPhoto(params: {
   });
   const text = await res.text();
   if (!res.ok) {
+    let msg = text || "העלאה נכשלה.";
     try {
-      const j = JSON.parse(text) as { error?: string };
-      throw new Error(j.error ?? text);
+      const j = JSON.parse(text) as { error?: string; hint?: string };
+      if (j.error) msg = j.hint ? `${j.error} — ${j.hint}` : j.error;
     } catch {
-      throw new Error(text || "העלאה נכשלה.");
+      /* body לא JSON */
     }
+    throw new Error(msg);
   }
   return JSON.parse(text) as Photo;
 }
@@ -63,12 +69,14 @@ export async function replaceStudioPhoto(params: {
   });
   const text = await res.text();
   if (!res.ok) {
+    let msg = text || "החלפת התמונה נכשלה.";
     try {
-      const j = JSON.parse(text) as { error?: string };
-      throw new Error(j.error ?? text);
+      const j = JSON.parse(text) as { error?: string; hint?: string };
+      if (j.error) msg = j.hint ? `${j.error} — ${j.hint}` : j.error;
     } catch {
-      throw new Error(text || "החלפת התמונה נכשלה.");
+      /* body לא JSON */
     }
+    throw new Error(msg);
   }
   return JSON.parse(text) as Photo;
 }

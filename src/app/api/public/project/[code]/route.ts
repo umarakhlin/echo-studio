@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import * as cloud from "@/lib/cloud/supabaseRepository";
+import { formatCloudRouteError } from "@/lib/cloud/routeErrors";
 import { getDataBackendMode } from "@/lib/data-backend";
 
 export const runtime = "nodejs";
@@ -25,7 +26,7 @@ export async function GET(
     ]);
     return NextResponse.json({ project, albums, photos });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "שגיאה.";
+    const msg = formatCloudRouteError(e);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

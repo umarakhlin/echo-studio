@@ -4,7 +4,13 @@
 export type DataBackendMode = "local" | "cloud";
 
 function normalizedBackendEnv(): string {
-  return (process.env.NEXT_PUBLIC_DATA_BACKEND ?? "").trim().toLowerCase();
+  return (
+    process.env.NEXT_PUBLIC_DATA_BACKEND ??
+    process.env.NEXT_PUBLIC_BACKEND ??
+    ""
+  )
+    .trim()
+    .toLowerCase();
 }
 
 export function getDataBackendMode(): DataBackendMode {

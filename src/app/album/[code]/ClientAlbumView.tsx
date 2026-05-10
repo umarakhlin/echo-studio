@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Home, Star } from "lucide-react";
+import { Home, Images, Info, Star } from "lucide-react";
 
+import { ClientPhotoLightbox } from "@/components/album/ClientPhotoLightbox";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useBlobUrl } from "@/lib/blob-url";
 import { cn } from "@/lib/cn";
@@ -20,6 +21,8 @@ import {
 
 type Stage = "loading" | "not-found" | "view";
 
+type ClientMainTab = "gallery" | "about";
+
 /**
  * כניסת לקוח: הקישור כולל את קוד הפרויקט — אין שער סיסמה.
  */
@@ -30,6 +33,9 @@ export function ClientAlbumView({ code }: { code: string }) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [activeAlbumId, setActiveAlbumId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "starred">("all");
+  const [mainTab, setMainTab] = useState<ClientMainTab>("gallery");
+  /** פתיחה לפי מזהה — עמיד יותר מאינדקס (מסנן/רענון רשימה). */
+  const [lightboxPhotoId, setLightboxPhotoId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,6 +87,12 @@ export function ClientAlbumView({ code }: { code: string }) {
     return list;
   }, [photos, activeAlbumId, filter]);
 
+  const lightboxIndex = useMemo(() => {
+    if (!lightboxPhotoId) return null;
+    const i = visiblePhotos.findIndex((p) => p.id === lightboxPhotoId);
+    return i >= 0 ? i : null;
+  }, [lightboxPhotoId, visiblePhotos]);
+
   const starredCount = useMemo(
     () =>
       photos.filter(
@@ -88,6 +100,10 @@ export function ClientAlbumView({ code }: { code: string }) {
       ).length,
     [photos, activeAlbumId]
   );
+
+  useEffect(() => {
+    setLightboxPhotoId(null);
+  }, [activeAlbumId, filter, mainTab]);
 
   if (stage === "loading") {
     return (
@@ -174,63 +190,130 @@ export function ClientAlbumView({ code }: { code: string }) {
           </p>
         </div>
 
-        {albums.length > 1 && (
-          <div className="mb-5 flex flex-wrap gap-1 rounded-xl bg-cream-200 p-1 border border-eggplant/10 w-fit">
-            {albums.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => setActiveAlbumId(a.id)}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 text-xs font-medium",
-                  activeAlbumId === a.id
-                    ? "bg-white text-eggplant shadow-soft"
-                    : "text-ink-soft hover:text-eggplant"
-                )}
-              >
-                {a.title}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="mb-5 flex items-end justify-between">
-          <h2 className="font-display text-xl font-semibold text-eggplant">
-            {albums.find((a) => a.id === activeAlbumId)?.title ?? "האלבום שלי"}
-          </h2>
-          {photos.length > 0 && (
-            <div className="flex gap-1 rounded-xl bg-cream-200 p-1 border border-eggplant/10">
-              <FilterTab
-                active={filter === "all"}
-                onClick={() => setFilter("all")}
-              >
-                הכל
-              </FilterTab>
-              <FilterTab
-                active={filter === "starred"}
-                onClick={() => setFilter("starred")}
-              >
-                <Star className="inline-block h-3 w-3 -mt-0.5" /> ({starredCount})
-              </FilterTab>
-            </div>
-          )}
+        <div
+          role="tablist"
+          aria-label="תצוגת אלבום"
+          className="mb-6 flex flex-wrap justify-center gap-1.5 rounded-2xl border border-eggplant/10 bg-white/70 p-1.5 shadow-sm sm:justify-start"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mainTab === "gallery"}
+            onClick={() => setMainTab("gallery")}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors",
+              mainTab === "gallery"
+                ? "bg-eggplant text-cream shadow-soft"
+                : "text-ink-soft hover:bg-cream-200"
+            )}
+          >
+            <Images className="h-4 w-4 shrink-0" />
+            גלריה
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mainTab === "about"}
+            onClick={() => setMainTab("about")}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors",
+              mainTab === "about"
+                ? "bg-eggplant text-cream shadow-soft"
+                : "text-ink-soft hover:bg-cream-200"
+            )}
+          >
+            <Info className="h-4 w-4 shrink-0" />
+            פרטים
+          </button>
         </div>
 
-        {visiblePhotos.length === 0 ? (
-          <EmptyState
-            title="עדיין אין תמונות באלבום"
-            description="הסטודיו עובד על הסריקה. ברגע שייכנסו תמונות, הן יופיעו כאן."
-          />
+        {mainTab === "about" ? (
+          <AboutTabContent project={project} albums={albums} />
         ) : (
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {visiblePhotos.map((photo) => (
-              <li key={photo.id}>
-                <ClientPhotoTile photo={photo} />
-              </li>
-            ))}
-          </ul>
+          <>
+            {albums.length > 0 && (
+              <div className="mb-5 flex flex-wrap gap-1 rounded-xl border border-eggplant/10 bg-cream-200 p-1 w-fit max-w-full overflow-x-auto">
+                {albums.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => setActiveAlbumId(a.id)}
+                    className={cn(
+                      "shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                      activeAlbumId === a.id
+                        ? "bg-white text-eggplant shadow-soft"
+                        : "text-ink-soft hover:text-eggplant"
+                    )}
+                  >
+                    {a.title}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <h2 className="font-display text-xl font-semibold text-eggplant">
+                {albums.find((a) => a.id === activeAlbumId)?.title ??
+                  "האלבום שלי"}
+              </h2>
+              {photos.length > 0 && (
+                <div
+                  role="tablist"
+                  aria-label="סינון תמונות"
+                  className="flex w-fit gap-1 rounded-xl border border-eggplant/10 bg-cream-200 p-1"
+                >
+                  <FilterTab
+                    active={filter === "all"}
+                    onClick={() => setFilter("all")}
+                  >
+                    הכל
+                  </FilterTab>
+                  <FilterTab
+                    active={filter === "starred"}
+                    onClick={() => setFilter("starred")}
+                  >
+                    <Star className="inline-block h-3 w-3 -mt-0.5" /> (
+                    {starredCount})
+                  </FilterTab>
+                </div>
+              )}
+            </div>
+
+            <p className="mb-4 text-xs text-ink-muted">
+              יש ללחוץ על תמונה לפתיחה גדולה. בתחתית המסך יופיע פס כלים: מעבר
+              בין תמונות, זום (+ / − או גלגלת), איפוס לגודל מקור, וסגירה.
+            </p>
+
+            {visiblePhotos.length === 0 ? (
+              <EmptyState
+                title="עדיין אין תמונות באלבום"
+                description="הסטודיו עובד על הסריקה. ברגע שייכנסו תמונות, הן יופיעו כאן."
+              />
+            ) : (
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {visiblePhotos.map((photo) => (
+                  <li key={photo.id}>
+                    <ClientPhotoTile
+                      photo={photo}
+                      onOpen={() => setLightboxPhotoId(photo.id)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </section>
+
+      <ClientPhotoLightbox
+        photos={visiblePhotos}
+        index={lightboxIndex}
+        onClose={() => setLightboxPhotoId(null)}
+        onIndexChange={(i) => {
+          const p = visiblePhotos[i];
+          if (p) setLightboxPhotoId(p.id);
+        }}
+      />
 
       <footer className="border-t border-eggplant/10 bg-cream-200/60">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-1 px-5 py-6 text-xs text-ink-muted">
@@ -241,39 +324,128 @@ export function ClientAlbumView({ code }: { code: string }) {
   );
 }
 
-function ClientPhotoTile({ photo }: { photo: Photo }) {
-  const blobUrl = useBlobUrl(photo.thumbnailBlob ?? photo.blob);
+function AboutTabContent({
+  project,
+  albums,
+}: {
+  project: Project;
+  albums: Album[];
+}) {
+  const hasNotes = Boolean(project.notes?.trim());
+  const albumWithDesc = albums.filter((a) => a.description?.trim());
+  const empty = !hasNotes && albumWithDesc.length === 0;
+
+  return (
+    <div className="max-w-2xl space-y-8 rounded-2xl border border-eggplant/10 bg-white/65 p-6 sm:p-8 shadow-soft">
+      {hasNotes ? (
+        <section className="space-y-2">
+          <h3 className="font-display text-lg font-semibold text-eggplant">
+            מהסטודיו
+          </h3>
+          <p className="text-sm leading-relaxed text-ink-soft whitespace-pre-line">
+            {project.notes}
+          </p>
+        </section>
+      ) : null}
+
+      {albumWithDesc.length > 0 ? (
+        <section className="space-y-4">
+          <h3 className="font-display text-lg font-semibold text-eggplant">
+            על האלבומים
+          </h3>
+          <ul className="space-y-4">
+            {albumWithDesc.map((a) => (
+              <li
+                key={a.id}
+                className="rounded-xl border border-eggplant/10 bg-cream-100/50 px-4 py-3"
+              >
+                <p className="font-medium text-eggplant">{a.title}</p>
+                <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+                  {a.description}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {empty ? (
+        <p className="py-6 text-center text-sm text-ink-muted leading-relaxed">
+          כאן יופיעו מידע והקשר שיוסיף הסטודיו — הערות על הפרויקט והסברים ליד
+          כל אלבום.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function tileBlobForHook(photo: Photo): Blob | null {
+  const t = photo.thumbnailBlob;
+  if (t instanceof Blob && t.size > 0) return t;
+  const b = photo.blob;
+  if (b instanceof Blob && b.size > 0) return b;
+  return null;
+}
+
+function ClientPhotoTile({
+  photo,
+  onOpen,
+}: {
+  photo: Photo;
+  onOpen: () => void;
+}) {
+  const blobUrl = useBlobUrl(tileBlobForHook(photo));
   const url = photo.thumbnailDisplayUrl ?? photo.displayUrl ?? blobUrl ?? null;
   return (
-    <figure className="overflow-hidden rounded-xl bg-cream-300 shadow-soft border border-eggplant/10">
-      <div className="relative aspect-[4/5]">
-        {url && (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={url}
-            alt={photo.fileName}
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        )}
-        {photo.starred && (
-          <span className="absolute top-2 left-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gold-400 text-white">
-            <Star className="h-3.5 w-3.5 fill-current" />
+    <div
+      role="button"
+      tabIndex={0}
+      className="group block w-full cursor-zoom-in touch-manipulation text-right transition hover:opacity-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-eggplant rounded-xl"
+      aria-label={`פתיחת תמונה מספר ${photo.serialNumber} בגודל מלא`}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onOpen();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+    >
+      <figure className="overflow-hidden rounded-xl border border-eggplant/10 bg-cream-300 shadow-soft transition group-hover:border-gold-400/45 group-hover:shadow-md">
+        <div className="relative aspect-[4/5]">
+          {url && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={url}
+              alt=""
+              loading="lazy"
+              draggable={false}
+              onDragStart={(e) => e.preventDefault()}
+              className="h-full w-full object-cover pointer-events-none select-none"
+            />
+          )}
+          {photo.starred && (
+            <span className="pointer-events-none absolute top-2 left-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gold-400 text-white">
+              <Star className="h-3.5 w-3.5 fill-current" />
+            </span>
+          )}
+          <span
+            className="pointer-events-none absolute top-2 right-2 rounded-full bg-white/90 px-2 py-0.5 font-mono text-xs text-eggplant shadow-soft"
+            dir="ltr"
+          >
+            #{String(photo.serialNumber).padStart(3, "0")}
           </span>
+        </div>
+        {photo.estimatedDate && (
+          <figcaption className="px-2.5 py-1.5 text-center text-[11px] text-ink-muted">
+            {photo.estimatedDate}
+          </figcaption>
         )}
-        <span
-          className="absolute top-2 right-2 rounded-full bg-white/90 px-2 py-0.5 font-mono text-xs text-eggplant shadow-soft"
-          dir="ltr"
-        >
-          #{String(photo.serialNumber).padStart(3, "0")}
-        </span>
-      </div>
-      {photo.estimatedDate && (
-        <figcaption className="px-2.5 py-1.5 text-center text-[11px] text-ink-muted">
-          {photo.estimatedDate}
-        </figcaption>
-      )}
-    </figure>
+      </figure>
+    </div>
   );
 }
 

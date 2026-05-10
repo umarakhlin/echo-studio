@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import * as cloud from "@/lib/cloud/supabaseRepository";
+import { formatCloudRouteError } from "@/lib/cloud/routeErrors";
 import { getDataBackendMode } from "@/lib/data-backend";
 import {
   STUDIO_SESSION_COOKIE,
@@ -134,7 +135,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: `op לא ידוע: ${op}` }, { status: 400 });
     }
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "שגיאת שרת.";
+    const msg = formatCloudRouteError(e);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

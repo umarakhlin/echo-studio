@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 import * as cloud from "@/lib/cloud/supabaseRepository";
+import { formatCloudRouteError } from "@/lib/cloud/routeErrors";
 import { getDataBackendMode } from "@/lib/data-backend";
+import { getSupabaseServiceRoleKey } from "@/lib/supabase/admin";
 import {
   STUDIO_SESSION_COOKIE,
   verifyStudioSessionToken,
@@ -21,7 +23,10 @@ export async function GET() {
   }
 
   const mode = getDataBackendMode();
-  const rawBackend = process.env.NEXT_PUBLIC_DATA_BACKEND?.trim() ?? "";
+  const rawBackend =
+    process.env.NEXT_PUBLIC_DATA_BACKEND?.trim() ||
+    process.env.NEXT_PUBLIC_BACKEND?.trim() ||
+    "";
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
   let supabaseHost: string | null = null;
   try {
@@ -29,7 +34,7 @@ export async function GET() {
   } catch {
     supabaseHost = null;
   }
-  const hasKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim());
+  const hasKey = Boolean(getSupabaseServiceRoleKey());
 
   const base = {
     backendMode: mode,
@@ -65,7 +70,7 @@ export async function GET() {
       database: { ok: true as const, clientCount: clients.length },
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "שגיאה לא ידועה";
+    const msg = formatCloudRouteError(e);
     let hint: string | undefined;
     if (/jwt|invalid.*token|malformed/i.test(msg)) {
       hint =
