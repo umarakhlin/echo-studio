@@ -89,9 +89,32 @@ export function ClientPhotoLightbox({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const aiRequestForPhotoId = useRef<string | null>(null);
+  /** null עד לתשובת השרת — לא מציגים כפתור AI כדי למנוע שגיאה אחרי לחיצה */
+  const [albumAiEnhanceConfigured, setAlbumAiEnhanceConfigured] = useState<
+    boolean | null
+  >(null);
+
+  useEffect(() => {
+    if (getDataBackendMode() !== "cloud") {
+      setAlbumAiEnhanceConfigured(false);
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/public/ai-features", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { albumAiEnhance?: boolean }) => {
+        if (!cancelled) setAlbumAiEnhanceConfigured(Boolean(j?.albumAiEnhance));
+      })
+      .catch(() => {
+        if (!cancelled) setAlbumAiEnhanceConfigured(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const canUseAiEnhance =
-    getDataBackendMode() === "cloud" &&
+    albumAiEnhanceConfigured === true &&
     Boolean(photo?.displayUrl?.trim()?.startsWith("https://"));
 
   const displayImageSrc = aiEnhancedUrl ?? src;
@@ -527,8 +550,10 @@ export function ClientPhotoLightbox({
 
         <p className="mt-2 text-center text-[11px] text-ink-muted">
           זום: כפתורים / מקשי +/−/0 (איפוס ל־100%) / מגע — בין 25% ל־400%, בלי גלגלת עכבר
-          · ← → לניווט · Esc לסגירה · במצב ענן: שיפור AI בפס הכלים (ייתכן עיכוב של
-          עד כדקה)
+          · ← → לניווט · Esc לסגירה
+          {albumAiEnhanceConfigured === true
+            ? " · שיפור AI בפס הכלים (עד כדקה)"
+            : ""}
         </p>
       </footer>
     </div>
