@@ -51,7 +51,8 @@ export async function upscaleWithRealEsrgan(imageUrl: string): Promise<string> {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
-        Prefer: "wait=120",
+        // Replicate: ערך wait חייב להיות 1–60 (לא מעל)
+        Prefer: "wait=60",
       },
       body: JSON.stringify({
         input: {
