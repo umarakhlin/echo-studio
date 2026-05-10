@@ -275,14 +275,14 @@ export function ClientAlbumView({ code }: { code: string }) {
 
             <p className="mb-4 text-xs text-ink-muted">
               <strong className="font-medium text-eggplant">לחצי על תמונה</strong>
-              — נפתחת תצוגה גדולה על כל המסך.{" "}
-              <strong className="font-medium text-eggplant">בתחתית</strong> יופיע
-              פס כלים בצבע זהוב: מעבר בין תמונות, כפתורי ״קטן״ / ״גדול״ לזום,
-              ״מקור״ לאיפוס, ומונה תמונות. למעלה מימין — סגירה (
-              <kbd className="rounded border border-eggplant/20 bg-cream-100 px-1">
-                Esc
-              </kbd>
-              ).
+              — נפתחת תצוגה גדולה. רקע חלבי סביב התמונה;{" "}
+              <strong className="font-medium text-eggplant">
+                לחיצה על הרקע
+              </strong>{" "}
+              (לא על התמונה) מחזירה לגלריה. אפשר{" "}
+              <strong className="font-medium text-eggplant">לשנות שם להצגה</strong>
+              בשדה בראש החלון — נשמר רק בדפדפן הזה. למטה פס כלים לזום ולמעבר בין
+              תמונות.
             </p>
 
             {visiblePhotos.length === 0 ? (
