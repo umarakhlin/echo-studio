@@ -33,10 +33,15 @@ function humanizeHfError(raw: string): string {
   if (/<!DOCTYPE\s+html|<html[\s>]/i.test(t)) {
     t = extractErrorFromBody(t);
   }
-  if (/insufficient|quota|exceeded|paid plan|upgrade|billing/i.test(t)) {
+  if (
+    /insufficient|quota|exceeded|paid plan|upgrade|billing|deplet\w*\s+your\s+.*credits|included credits|pre-paid credits|subscribe to PRO|Inference Providers/i.test(
+      t
+    )
+  ) {
     return (
-      "מגבלת Inference ב-Hugging Face נגמרה או נדרשת הרשאה/תשלום. " +
-      "בדקי billing והרשאות טוקן ב-huggingface.co/settings/tokens (Inference Providers)."
+      "נגמרו קרדיטי Inference ב-Hugging Face לחודש (או אין מספיק כלל). " +
+      "אפשר לרכוש קרדיטים מראש או Pro ב-huggingface.co/settings/billing, " +
+      "או להשתמש בשירות אחר לשיפור תמונה (למשל Replicate עם טוקן נפרד אם מוגדר)."
     );
   }
   if (
