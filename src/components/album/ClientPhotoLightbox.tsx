@@ -18,6 +18,15 @@ import { useBlobUrl } from "@/lib/blob-url";
 import type { Photo } from "@/lib/db/types";
 import { cn } from "@/lib/cn";
 
+/** זום בתצוגת לקוח — מתחת ל-100% כדי לראות את כל התמונה בתוך המסך. */
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 4;
+const ZOOM_STEP = 0.25;
+
+function clampZoom(z: number): number {
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 100) / 100));
+}
+
 function pickFullImageUrl(
   photo: Photo,
   fallbackBlobUrl: string | null
@@ -124,15 +133,11 @@ export function ClientPhotoLightbox({
       if (e.key === "ArrowLeft") rtl ? goNext() : goPrev();
       if (e.key === "+" || e.key === "=") {
         e.preventDefault();
-        setZoom((z) =>
-          Math.min(4, Math.round((z + 0.25) * 100) / 100)
-        );
+        setZoom((z) => clampZoom(z + ZOOM_STEP));
       }
       if (e.key === "-" || e.key === "_") {
         e.preventDefault();
-        setZoom((z) =>
-          Math.max(1, Math.round((z - 0.25) * 100) / 100)
-        );
+        setZoom((z) => clampZoom(z - ZOOM_STEP));
       }
       if (e.key === "0") {
         e.preventDefault();
@@ -149,9 +154,7 @@ export function ClientPhotoLightbox({
   }, [open, goPrev, goNext, onClose]);
 
   const bumpZoom = useCallback((delta: number) => {
-    setZoom((z) =>
-      Math.min(4, Math.max(1, Math.round((z + delta) * 100) / 100))
-    );
+    setZoom((z) => clampZoom(z + delta));
   }, []);
 
   if (!open || !photo) return null;
@@ -397,8 +400,8 @@ export function ClientPhotoLightbox({
         </div>
 
         <p className="mt-2 text-center text-[11px] text-ink-muted">
-          זום רק מכפתורי קטן/גדול, מקשי +/−/0, או מגע עליהם — לא עם גלגלת עכבר על
-          התמונה · ← → · Esc לסגירה
+          זום רק מכפתורי קטן/גדול, מקשי +/−/0 (מקור = 100%), או מגע עליהם — עד 25%
+          ועד 400% · לא עם גלגלת עכבר · ← → · Esc לסגירה
         </p>
       </footer>
     </div>
