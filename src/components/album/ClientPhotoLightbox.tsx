@@ -38,6 +38,27 @@ function isValidEnhancedImageUrl(url: string | undefined): url is string {
   );
 }
 
+/** מנקה דפי HTML/שגיאות gateway כדי שלא יוצגו בלייטבוקס כטקסט גולמי */
+function formatAiEnhanceApiError(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "השיפור נכשל.";
+  if (!/<!DOCTYPE\s+html|<html[\s>]/i.test(t)) {
+    return t.length > 380 ? `${t.slice(0, 380)}…` : t;
+  }
+  const pre = /<pre[^>]*>([\s\S]*?)<\/pre>/i.exec(t);
+  if (pre?.[1] && /cannot post/i.test(pre[1])) {
+    return (
+      "הבקשה נשלחה לנתיב inference שלא תומך במודל הזה (בדרך כלל קוד לא מעודכן או מודל לא נתמך). " +
+      "פרקי מחדש אחרי פריסה מ-Vercel, ובדקי ש־HUGGINGFACE_API_TOKEN כולל הרשאת Inference Providers."
+    );
+  }
+  if (pre?.[1]) {
+    const inner = pre[1].trim();
+    return inner.length > 220 ? `${inner.slice(0, 220)}…` : inner;
+  }
+  return "שגיאת שירות שיפור — נסי שוב או בדקי פריסה וטוקן Hugging Face.";
+}
+
 function pickFullImageUrl(
   photo: Photo,
   fallbackBlobUrl: string | null
@@ -244,7 +265,7 @@ export function ClientPhotoLightbox({
         } catch {
           /* */
         }
-        setAiError(msg);
+        setAiError(formatAiEnhanceApiError(msg));
         return;
       }
       setAiEnhancedUrl(enhancedUrl);

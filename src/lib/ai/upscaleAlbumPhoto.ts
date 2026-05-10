@@ -31,6 +31,6 @@ export async function upscaleAlbumPhoto(imageUrl: string): Promise<string> {
   }
 
   throw new Error(
-    "שירות שיפור AI לא מוגדר: הוסיפי HUGGINGFACE_API_TOKEN או REPLICATE_API_TOKEN בהגדרות הפריסה."
+    "שירות שיפור AI לא מוגדר: הוסיפי HUGGINGFACE_API_TOKEN (Inference Providers) או REPLICATE_API_TOKEN."
   );
 }
