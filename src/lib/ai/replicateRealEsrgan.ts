@@ -32,6 +32,20 @@ function formatReplicateDetail(detail: unknown): string {
   return String(detail);
 }
 
+/** תרגום הודעות נפוצות מ-Replicate לטקסט ברור ליוצאת Echo */
+function humanizeReplicateError(raw: string): string {
+  const t = raw.trim();
+  if (!t) return raw;
+  if (/insufficient credit/i.test(t)) {
+    return (
+      "אין מספיק יתרה בחשבון Replicate (שירות שיפור התמונות). " +
+      "הוסיפי אשראי: https://replicate.com/account/billing#billing — " +
+      "המתיני כמה דקות ונסי שוב."
+    );
+  }
+  return t;
+}
+
 /**
  * שיפור דחיסה / חידוד לפי Real-ESRGAN ב-Replicate (דורש REPLICATE_API_TOKEN).
  * התוצאה — קישור HTTPS זמני לתמונה המעובדת.
@@ -66,9 +80,9 @@ export async function upscaleWithRealEsrgan(imageUrl: string): Promise<string> {
 
   let pred = (await res.json()) as Prediction;
   if (!res.ok) {
-    throw new Error(
-      formatReplicateDetail(pred.detail) || `Replicate: ${res.status}`
-    );
+    const raw =
+      formatReplicateDetail(pred.detail) || `Replicate: ${res.status}`;
+    throw new Error(humanizeReplicateError(raw));
   }
 
   let attempts = 0;
@@ -82,12 +96,16 @@ export async function upscaleWithRealEsrgan(imageUrl: string): Promise<string> {
     });
     pred = (await poll.json()) as Prediction;
     if (!poll.ok) {
-      throw new Error(formatReplicateDetail(pred.detail) || `Replicate poll: ${poll.status}`);
+      const raw =
+        formatReplicateDetail(pred.detail) || `Replicate poll: ${poll.status}`;
+      throw new Error(humanizeReplicateError(raw));
     }
   }
 
   if (isFailed(pred.status)) {
-    throw new Error(pred.error || "שיפור התמונה נעצר עם שגיאה.");
+    throw new Error(
+      humanizeReplicateError(pred.error || "שיפור התמונה נעצר עם שגיאה.")
+    );
   }
 
   const out = pred.output;
