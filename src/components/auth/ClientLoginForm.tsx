@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { readLastAlbumProjectCode, writeLastAlbumProjectCode } from "@/lib/album-last-code";
 import { getWhatsAppChatUrl } from "@/lib/whatsapp";
 import { getProjectByCode } from "@/lib/db";
 
@@ -19,6 +20,11 @@ export default function ClientLoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const wa = getWhatsAppChatUrl();
+
+  useEffect(() => {
+    const saved = readLastAlbumProjectCode();
+    if (saved) setCode(saved);
+  }, []);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,6 +45,7 @@ export default function ClientLoginForm() {
         );
         return;
       }
+      writeLastAlbumProjectCode(project.code);
       router.push(`/album/${encodeURIComponent(project.code)}`);
     } catch (err) {
       const message =
@@ -62,7 +69,7 @@ export default function ClientLoginForm() {
         onChange={(e) => setCode(e.target.value)}
         autoComplete="off"
         startIcon={<KeyRound className="h-4 w-4" />}
-        hint="אפשר גם להעתיק אותו מההודעה ב-WhatsApp."
+        hint="נשמר אוטומטית אחרי כניסה מוצלחת במכשיר הזה. אפשר גם להעתיק מההודעה ב-WhatsApp."
         dir="ltr"
         className="font-mono tracking-wider text-center"
       />

@@ -9,6 +9,7 @@ import {
   readShowCustomAlbumLabels,
   writeShowCustomAlbumLabels,
 } from "@/lib/album-client-labels";
+import { writeLastAlbumProjectCode } from "@/lib/album-last-code";
 import { ClientPhotoLightbox } from "@/components/album/ClientPhotoLightbox";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useBlobUrl } from "@/lib/blob-url";
@@ -87,6 +88,12 @@ export function ClientAlbumView({ code }: { code: string }) {
       cancelled = true;
     };
   }, [code]);
+
+  useEffect(() => {
+    if (stage === "view" && project?.code) {
+      writeLastAlbumProjectCode(project.code);
+    }
+  }, [stage, project?.code]);
 
   const visiblePhotos = useMemo(() => {
     let list = activeAlbumId
