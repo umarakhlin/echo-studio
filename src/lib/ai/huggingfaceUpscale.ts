@@ -40,13 +40,13 @@ function humanizeHfError(raw: string): string {
     );
   }
   if (
-    /cannot post\s+\/|not supported for task|inference provider|no inference provider|Task.*not supported for provider/i.test(
+    /cannot post\s+\/|not supported for task|no inference provider|We have not been able to find inference provider|Task ['\w-]+ ['\w-]+ not supported for provider/i.test(
       t
     )
   ) {
     return (
       "שירות השיפור לא מצליח עם המודל או הספק הנוכחי. " +
-      "עדכני את HUGGINGFACE_IMAGE_UPSCALE_MODEL או נסי HUGGINGFACE_IMAGE_INFERENCE_PROVIDER=fal-ai או replicate."
+      "עדכני את HUGGINGFACE_IMAGE_UPSCALE_MODEL או הוסיפי HUGGINGFACE_IMAGE_INFERENCE_PROVIDER=replicate (או fal-ai)."
     );
   }
   if (/invalid username|invalid token|401|unauthorized|not authenticated/i.test(t)) {
@@ -75,11 +75,17 @@ function bufferToDataUrl(out: Buffer, mimeFromHeader: string): string | null {
 
 function parseProvider(
   raw: string | undefined
-): InferenceProviderOrPolicy {
+): InferenceProviderOrPolicy | null {
   const t = raw?.trim();
-  if (!t || t === "auto") return "fal-ai";
+  if (!t || t === "auto") return null;
   return t as InferenceProviderOrPolicy;
 }
+
+const PROVIDER_FALLBACK_ORDER: InferenceProviderOrPolicy[] = [
+  "fal-ai",
+  "replicate",
+  "wavespeed",
+];
 
 /**
  * שיפור איכות תמונה דרך Hugging Face Inference Providers (למשל Fal מאחורי router),
@@ -98,6 +104,9 @@ export async function upscaleWithHuggingFace(imageUrl: string): Promise<string> 
   const provider = parseProvider(
     process.env.HUGGINGFACE_IMAGE_INFERENCE_PROVIDER
   );
+  const providerCandidates: InferenceProviderOrPolicy[] = provider
+    ? [provider]
+    : PROVIDER_FALLBACK_ORDER;
 
   const imageRes = await fetch(imageUrl);
   if (!imageRes.ok) {
@@ -112,26 +121,33 @@ export async function upscaleWithHuggingFace(imageUrl: string): Promise<string> 
 
   const client = new InferenceClient(token);
 
-  let outBlob: Blob;
-  try {
-    outBlob = await client.imageToImage({
-      model,
-      inputs: blob,
-      parameters: { prompt },
-      provider,
-    });
-  } catch (e) {
-    const raw = e instanceof Error ? e.message : String(e);
-    throw new Error(humanizeHfError(raw));
+  let lastRaw = "";
+  for (const p of providerCandidates) {
+    try {
+      const outBlob = await client.imageToImage({
+        model,
+        inputs: blob,
+        parameters: { prompt },
+        provider: p,
+      });
+      const outBuf = Buffer.from(await outBlob.arrayBuffer());
+      const mime =
+        outBlob.type && outBlob.type !== "application/octet-stream"
+          ? outBlob.type
+          : "image/png";
+      const dataUrl = bufferToDataUrl(outBuf, mime);
+      if (!dataUrl) {
+        throw new Error("לא התקבלה תמונה תקינה מ-Hugging Face.");
+      }
+      return dataUrl;
+    } catch (e) {
+      lastRaw = e instanceof Error ? e.message : String(e);
+      console.warn(
+        `[huggingfaceUpscale] provider ${p} failed:`,
+        lastRaw.slice(0, 500)
+      );
+    }
   }
 
-  const outBuf = Buffer.from(await outBlob.arrayBuffer());
-  const mime = outBlob.type && outBlob.type !== "application/octet-stream"
-    ? outBlob.type
-    : "image/png";
-  const dataUrl = bufferToDataUrl(outBuf, mime);
-  if (!dataUrl) {
-    throw new Error("לא התקבלה תמונה תקינה מ-Hugging Face.");
-  }
-  return dataUrl;
+  throw new Error(humanizeHfError(lastRaw));
 }
