@@ -148,14 +148,6 @@ export function ClientPhotoLightbox({
     };
   }, [open, goPrev, goNext, onClose]);
 
-  const onWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.12 : 0.12;
-    setZoom((z) =>
-      Math.min(4, Math.max(1, Math.round((z + delta) * 100) / 100))
-    );
-  }, []);
-
   const bumpZoom = useCallback((delta: number) => {
     setZoom((z) =>
       Math.min(4, Math.max(1, Math.round((z + delta) * 100) / 100))
@@ -207,7 +199,6 @@ export function ClientPhotoLightbox({
       <div
         className="min-h-0 flex-1 overflow-auto overscroll-contain bg-cream-100"
         onClick={onClose}
-        onWheel={onWheel}
       >
         <div className="pointer-events-none flex min-h-full items-center justify-center p-4 sm:p-6">
           <div className="pointer-events-auto max-h-full max-w-full">
@@ -406,7 +397,8 @@ export function ClientPhotoLightbox({
         </div>
 
         <p className="mt-2 text-center text-[11px] text-ink-muted">
-          גלגלת על התמונה לזום · + / − · 0 לאיפוס · ← → · Esc סגירה
+          זום רק מכפתורי קטן/גדול, מקשי +/−/0, או מגע עליהם — לא עם גלגלת עכבר על
+          התמונה · ← → · Esc לסגירה
         </p>
       </footer>
     </div>

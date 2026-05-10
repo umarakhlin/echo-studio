@@ -115,6 +115,19 @@ export function ClientAlbumView({ code }: { code: string }) {
 
   async function handleToggleStar(photoId: string) {
     if (!project) return;
+    const id = String(photoId);
+    const cur = photos.find((p) => String(p.id) === id);
+    if (!cur) return;
+    const before = cur.starred;
+
+    setPhotos((prev) =>
+      prev.map((p) =>
+        String(p.id) === id
+          ? { ...p, starred: !before, updatedAt: Date.now() }
+          : p
+      )
+    );
+
     try {
       const patch = await toggleStarOnClientAlbum(project.code, photoId);
       setPhotos((prev) =>
@@ -126,6 +139,11 @@ export function ClientAlbumView({ code }: { code: string }) {
       );
     } catch (e) {
       console.error(e);
+      setPhotos((prev) =>
+        prev.map((p) =>
+          String(p.id) === id ? { ...p, starred: before, updatedAt: cur.updatedAt } : p
+        )
+      );
     }
   }
 
@@ -313,7 +331,9 @@ export function ClientAlbumView({ code }: { code: string }) {
               <strong className="font-medium text-eggplant">לחיצה על הרקע</strong>{" "}
               (לא על התמונה) מחזירה לגלריה.{" "}
               <strong className="font-medium text-eggplant">כוכב</strong> בפינה ובפס
-              הכלים — אותו סימון בגלריה ובזום. כינוי לתמונה ואפשרות להציג או להסתיר
+              הכלים — אותו סימון בגלריה ובזום; מתעדכן מיד.{" "}
+              <strong className="font-medium text-eggplant">זום</strong> מכפתורים או
+              מקלדת (לא מגלגלת עכבר על התמונה). כינוי לתמונה ואפשרות להציג או להסתיר
               אותו — בתחתית חלון התצוגה; נשמר רק במכשיר הזה.
             </p>
 
