@@ -36,6 +36,7 @@ export {
   replacePhotoFromBlob,
   updatePhoto,
   toggleStarPhoto,
+  toggleStarOnClientAlbum,
   deletePhoto,
   reorderPhotos,
   getDashboardStats,

@@ -9,9 +9,11 @@ import {
   Minus,
   Plus,
   RotateCcw,
+  Star,
   X,
 } from "lucide-react";
 
+import { albumDisplayNameStorageKey } from "@/lib/album-client-labels";
 import { useBlobUrl } from "@/lib/blob-url";
 import type { Photo } from "@/lib/db/types";
 import { cn } from "@/lib/cn";
@@ -34,15 +36,15 @@ function pickPreviewBlob(photo: Photo | null): Blob | null {
   return null;
 }
 
-function labelStorageKey(photoId: string) {
-  return `echo-album-display-name-${photoId}`;
-}
-
 interface Props {
   photos: Photo[];
   activePhotoId: string | null;
   onClose: () => void;
   onActivePhotoIdChange: (id: string) => void;
+  showCustomLabels: boolean;
+  onShowCustomLabelsChange: (value: boolean) => void;
+  onToggleStar: (photoId: string) => void | Promise<void>;
+  onDisplayLabelSaved?: () => void;
 }
 
 export function ClientPhotoLightbox({
@@ -50,6 +52,10 @@ export function ClientPhotoLightbox({
   activePhotoId,
   onClose,
   onActivePhotoIdChange,
+  showCustomLabels,
+  onShowCustomLabelsChange,
+  onToggleStar,
+  onDisplayLabelSaved,
 }: Props) {
   const index = useMemo(() => {
     if (!activePhotoId) return null;
@@ -72,19 +78,22 @@ export function ClientPhotoLightbox({
       setDisplayLabel("");
       return;
     }
-    setDisplayLabel(localStorage.getItem(labelStorageKey(String(photo.id))) ?? "");
+    setDisplayLabel(
+      localStorage.getItem(albumDisplayNameStorageKey(String(photo.id))) ?? ""
+    );
   }, [photo?.id]);
 
   const persistDisplayLabel = useCallback(
     (raw: string) => {
       if (!photo?.id || typeof window === "undefined") return;
       const t = raw.trim();
-      const key = labelStorageKey(String(photo.id));
+      const key = albumDisplayNameStorageKey(String(photo.id));
       if (t) localStorage.setItem(key, t);
       else localStorage.removeItem(key);
       setDisplayLabel(t);
+      onDisplayLabelSaved?.();
     },
-    [photo?.id]
+    [photo?.id, onDisplayLabelSaved]
   );
 
   const goPrev = useCallback(() => {
@@ -169,7 +178,7 @@ export function ClientPhotoLightbox({
         className="flex shrink-0 flex-col gap-2 border-b border-eggplant/12 bg-cream-200 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="text-[11px] text-ink-muted">
             #{String(photo.serialNumber).padStart(3, "0")}
             <span className="mx-1 text-eggplant/40">·</span>
@@ -177,19 +186,11 @@ export function ClientPhotoLightbox({
               {photo.fileName}
             </span>
           </p>
-          <label className="sr-only" htmlFor="album-lightbox-display-name">
-            שם להצגה
-          </label>
-          <input
-            id="album-lightbox-display-name"
-            type="text"
-            value={displayLabel}
-            onChange={(e) => setDisplayLabel(e.target.value)}
-            onBlur={() => persistDisplayLabel(displayLabel)}
-            placeholder="שם להצגה (נשמר רק בדפדפן זה)"
-            dir="auto"
-            className="w-full max-w-xl rounded-lg border border-eggplant/15 bg-cream px-2.5 py-1.5 text-sm text-eggplant placeholder:text-ink-muted/70 focus:border-eggplant/35 focus:outline-none focus:ring-2 focus:ring-gold-400/40"
-          />
+          {showCustomLabels && displayLabel.trim() ? (
+            <p className="truncate text-sm font-medium text-eggplant" dir="auto">
+              {displayLabel.trim()}
+            </p>
+          ) : null}
         </div>
         <button
           type="button"
@@ -216,10 +217,13 @@ export function ClientPhotoLightbox({
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={src}
-                alt={displayLabel.trim() || photo.fileName}
+                alt={
+                  showCustomLabels && displayLabel.trim()
+                    ? displayLabel.trim()
+                    : photo.fileName
+                }
                 className={cn(
-                  "block max-h-[calc(100dvh-12.5rem)] max-w-[min(100vw-2rem,1400px)] object-contain select-none transition-transform duration-150 ease-out sm:max-h-[calc(100vh-13rem)]",
-                  zoom > 1 && "cursor-grab"
+                  "block max-h-[calc(100dvh-12.5rem)] max-w-[min(100vw-2rem,1400px)] object-contain select-none sm:max-h-[calc(100vh-13rem)]"
                 )}
                 style={{
                   transform: `scale(${zoom})`,
@@ -268,6 +272,29 @@ export function ClientPhotoLightbox({
           dir="ltr"
           className="flex max-w-full flex-wrap items-center justify-center gap-x-1 gap-y-2 rounded-xl border border-eggplant/12 bg-cream-100 px-2 py-2 sm:gap-x-2 sm:px-3"
         >
+          <button
+            type="button"
+            onClick={() => void onToggleStar(String(photo.id))}
+            className={cn(
+              "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-eggplant hover:bg-cream-200",
+              photo.starred && "text-gold-600"
+            )}
+            aria-label={photo.starred ? "הסרת כוכב" : "סימון בכוכב"}
+            aria-pressed={photo.starred}
+            title={photo.starred ? "הסרת כוכב" : "סימון בכוכב"}
+          >
+            <Star
+              className={cn("h-5 w-5", photo.starred && "fill-current")}
+            />
+          </button>
+
+          {photos.length > 1 && (
+            <span
+              className="mx-0.5 hidden h-6 w-px bg-eggplant/15 sm:block"
+              aria-hidden
+            />
+          )}
+
           {photos.length > 1 && (
             <>
               <button
@@ -344,6 +371,38 @@ export function ClientPhotoLightbox({
           <span className="px-2 text-xs tabular-nums text-ink-muted" dir="ltr">
             {index! + 1}/{photos.length}
           </span>
+        </div>
+
+        <div
+          className="mt-3 space-y-2 rounded-xl border border-eggplant/10 bg-cream-100/80 px-3 py-2.5 text-right"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-ink-soft">
+            <span className="min-w-0 flex-1 leading-snug">
+              להציג בגלריה ובחלון את השם שמילאתי למטה
+            </span>
+            <input
+              type="checkbox"
+              checked={showCustomLabels}
+              onChange={(e) => onShowCustomLabelsChange(e.target.checked)}
+              className="h-3.5 w-3.5 shrink-0 rounded border-eggplant/25 text-eggplant focus:ring-gold-400/50"
+            />
+          </label>
+          <div>
+            <label className="sr-only" htmlFor="album-lightbox-display-name">
+              כינוי לתמונה (נשמר במכשיר)
+            </label>
+            <input
+              id="album-lightbox-display-name"
+              type="text"
+              value={displayLabel}
+              onChange={(e) => setDisplayLabel(e.target.value)}
+              onBlur={() => persistDisplayLabel(displayLabel)}
+              placeholder="כינוי לתמונה (רק במכשיר הזה)"
+              dir="auto"
+              className="w-full rounded-lg border border-eggplant/15 bg-cream px-2.5 py-1.5 text-sm text-eggplant placeholder:text-ink-muted/70 focus:border-eggplant/35 focus:outline-none focus:ring-2 focus:ring-gold-400/40"
+            />
+          </div>
         </div>
 
         <p className="mt-2 text-center text-[11px] text-ink-muted">

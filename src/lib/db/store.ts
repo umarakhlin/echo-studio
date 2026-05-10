@@ -277,6 +277,47 @@ export async function toggleStarPhoto(id: string): Promise<Photo> {
   return (await import("./photos")).toggleStarPhoto(id);
 }
 
+/** סימון כוכב מדף אלבום לקוח — ללא סשן סטודיו (ענן: API ציבורי לפי קוד פרויקט). */
+export async function toggleStarOnClientAlbum(
+  projectCode: string,
+  photoId: string
+): Promise<{ id: string; starred: boolean; updatedAt: number }> {
+  const code = projectCode.toUpperCase();
+  if (getDataBackendMode() === "cloud") {
+    const res = await fetch(
+      `/api/public/project/${encodeURIComponent(code)}/toggle-star`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photoId }),
+      }
+    );
+    const text = await res.text();
+    if (!res.ok) {
+      let msg = text || "עדכון נכשל.";
+      try {
+        const j = JSON.parse(text) as { error?: string };
+        if (j.error) msg = j.error;
+      } catch {
+        /* לא JSON */
+      }
+      throw new Error(msg);
+    }
+    const body = JSON.parse(text) as {
+      photo?: { id: string; starred: boolean; updatedAt: number };
+    };
+    const p = body.photo;
+    if (!p?.id) throw new Error("תגובת שרת לא תקינה.");
+    return p;
+  }
+  const updated = await toggleStarPhoto(photoId);
+  return {
+    id: updated.id,
+    starred: updated.starred,
+    updatedAt: updated.updatedAt,
+  };
+}
+
 export async function deletePhoto(id: string): Promise<void> {
   if (getDataBackendMode() === "cloud") {
     await cloud("deletePhoto", { id });

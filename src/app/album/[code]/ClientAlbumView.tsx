@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Home, Images, Info, Star } from "lucide-react";
 
+import {
+  albumDisplayNameStorageKey,
+  readShowCustomAlbumLabels,
+  writeShowCustomAlbumLabels,
+} from "@/lib/album-client-labels";
 import { ClientPhotoLightbox } from "@/components/album/ClientPhotoLightbox";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useBlobUrl } from "@/lib/blob-url";
@@ -14,6 +19,7 @@ import {
   getProjectByCode,
   listAlbumsByProject,
   listPhotosByProject,
+  toggleStarOnClientAlbum,
   type Album,
   type Photo,
   type Project,
@@ -36,6 +42,9 @@ export function ClientAlbumView({ code }: { code: string }) {
   const [mainTab, setMainTab] = useState<ClientMainTab>("gallery");
   /** פתיחה לפי מזהה — עמיד יותר מאינדקס (מסנן/רענון רשימה). */
   const [lightboxPhotoId, setLightboxPhotoId] = useState<string | null>(null);
+  const [showCustomLabels, setShowCustomLabels] = useState(false);
+  /** ריענון כיתובים מ-localStorage אחרי שמירה בלייטבוקס */
+  const [labelVersion, setLabelVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,6 +103,31 @@ export function ClientAlbumView({ code }: { code: string }) {
       ).length,
     [photos, activeAlbumId]
   );
+
+  useEffect(() => {
+    setShowCustomLabels(readShowCustomAlbumLabels());
+  }, []);
+
+  function persistShowCustomLabels(value: boolean) {
+    writeShowCustomAlbumLabels(value);
+    setShowCustomLabels(value);
+  }
+
+  async function handleToggleStar(photoId: string) {
+    if (!project) return;
+    try {
+      const patch = await toggleStarOnClientAlbum(project.code, photoId);
+      setPhotos((prev) =>
+        prev.map((p) =>
+          String(p.id) === String(patch.id)
+            ? { ...p, starred: patch.starred, updatedAt: patch.updatedAt }
+            : p
+        )
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
   useEffect(() => {
     setLightboxPhotoId(null);
@@ -274,15 +308,13 @@ export function ClientAlbumView({ code }: { code: string }) {
             </div>
 
             <p className="mb-4 text-xs text-ink-muted">
-              <strong className="font-medium text-eggplant">לחצי על תמונה</strong>
-              — נפתחת תצוגה גדולה. רקע חלבי סביב התמונה;{" "}
-              <strong className="font-medium text-eggplant">
-                לחיצה על הרקע
-              </strong>{" "}
-              (לא על התמונה) מחזירה לגלריה. אפשר{" "}
-              <strong className="font-medium text-eggplant">לשנות שם להצגה</strong>
-              בשדה בראש החלון — נשמר רק בדפדפן הזה. למטה פס כלים לזום ולמעבר בין
-              תמונות.
+              <strong className="font-medium text-eggplant">לחצי על התמונה</strong>
+              — תצוגה גדולה;{" "}
+              <strong className="font-medium text-eggplant">לחיצה על הרקע</strong>{" "}
+              (לא על התמונה) מחזירה לגלריה.{" "}
+              <strong className="font-medium text-eggplant">כוכב</strong> בפינה ובפס
+              הכלים — אותו סימון בגלריה ובזום. כינוי לתמונה ואפשרות להציג או להסתיר
+              אותו — בתחתית חלון התצוגה; נשמר רק במכשיר הזה.
             </p>
 
             {visiblePhotos.length === 0 ? (
@@ -296,7 +328,10 @@ export function ClientAlbumView({ code }: { code: string }) {
                   <li key={photo.id} className="relative z-0 min-w-0">
                     <ClientPhotoTile
                       photo={photo}
+                      showCustomLabels={showCustomLabels}
+                      labelVersion={labelVersion}
                       onOpen={() => setLightboxPhotoId(String(photo.id))}
+                      onToggleStar={() => void handleToggleStar(String(photo.id))}
                     />
                   </li>
                 ))}
@@ -311,6 +346,10 @@ export function ClientAlbumView({ code }: { code: string }) {
         activePhotoId={lightboxPhotoId}
         onClose={() => setLightboxPhotoId(null)}
         onActivePhotoIdChange={setLightboxPhotoId}
+        showCustomLabels={showCustomLabels}
+        onShowCustomLabelsChange={persistShowCustomLabels}
+        onToggleStar={handleToggleStar}
+        onDisplayLabelSaved={() => setLabelVersion((v) => v + 1)}
       />
 
       <footer className="border-t border-eggplant/10 bg-cream-200/60">
@@ -388,56 +427,93 @@ function tileBlobForHook(photo: Photo): Blob | null {
 function ClientPhotoTile({
   photo,
   onOpen,
+  onToggleStar,
+  showCustomLabels,
+  labelVersion,
 }: {
   photo: Photo;
   onOpen: () => void;
+  onToggleStar: () => void;
+  showCustomLabels: boolean;
+  labelVersion: number;
 }) {
   const blobUrl = useBlobUrl(tileBlobForHook(photo));
   const url = photo.thumbnailDisplayUrl ?? photo.displayUrl ?? blobUrl ?? null;
+
+  const customCaption = useMemo(() => {
+    if (!showCustomLabels || typeof window === "undefined") return "";
+    const raw =
+      window.localStorage.getItem(albumDisplayNameStorageKey(String(photo.id))) ??
+      "";
+    return raw.trim();
+  }, [photo.id, showCustomLabels, labelVersion]);
+
   return (
-    <button
-      type="button"
-      className="group block w-full cursor-zoom-in touch-manipulation text-right transition hover:opacity-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-eggplant rounded-xl [-webkit-tap-highlight-color:transparent]"
-      aria-label={`פתיחת תמונה מספר ${photo.serialNumber} בגודל מלא`}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onOpen();
-      }}
-    >
-      <figure className="pointer-events-none overflow-hidden rounded-xl border border-eggplant/10 bg-cream-300 shadow-soft transition group-hover:border-gold-400/45 group-hover:shadow-md">
-        <div className="relative aspect-[4/5]">
-          {url && (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={url}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              draggable={false}
-              onDragStart={(e) => e.preventDefault()}
-              className="h-full w-full object-cover select-none"
-            />
-          )}
-          {photo.starred && (
-            <span className="absolute top-2 left-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gold-400 text-white">
-              <Star className="h-3.5 w-3.5 fill-current" />
+    <div className="relative">
+      <button
+        type="button"
+        className="block w-full cursor-zoom-in touch-manipulation rounded-xl text-right [-webkit-tap-highlight-color:transparent] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-eggplant"
+        aria-label={`פתיחת תמונה מספר ${photo.serialNumber} בגודל מלא`}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onOpen();
+        }}
+      >
+        <figure className="pointer-events-none overflow-hidden rounded-xl border border-eggplant/10 bg-cream-300 shadow-soft">
+          <div className="relative aspect-[4/5]">
+            {url && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={url}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                className="h-full w-full object-cover select-none"
+              />
+            )}
+            <span
+              className="absolute top-2 right-2 rounded-full bg-white/90 px-2 py-0.5 font-mono text-xs text-eggplant shadow-soft"
+              dir="ltr"
+            >
+              #{String(photo.serialNumber).padStart(3, "0")}
             </span>
+          </div>
+          {(photo.estimatedDate || customCaption) && (
+            <figcaption className="space-y-0.5 px-2.5 py-1.5 text-center text-[11px] text-ink-muted">
+              {photo.estimatedDate ? (
+                <span className="block">{photo.estimatedDate}</span>
+              ) : null}
+              {customCaption ? (
+                <span className="block font-medium text-eggplant" dir="auto">
+                  {customCaption}
+                </span>
+              ) : null}
+            </figcaption>
           )}
-          <span
-            className="absolute top-2 right-2 rounded-full bg-white/90 px-2 py-0.5 font-mono text-xs text-eggplant shadow-soft"
-            dir="ltr"
-          >
-            #{String(photo.serialNumber).padStart(3, "0")}
-          </span>
-        </div>
-        {photo.estimatedDate && (
-          <figcaption className="px-2.5 py-1.5 text-center text-[11px] text-ink-muted">
-            {photo.estimatedDate}
-          </figcaption>
+        </figure>
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggleStar();
+        }}
+        className={cn(
+          "absolute top-2 left-2 z-[2] flex h-8 w-8 items-center justify-center rounded-full shadow-soft",
+          photo.starred
+            ? "bg-gold-400 text-white"
+            : "border border-eggplant/10 bg-white/95 text-eggplant hover:bg-cream-100"
         )}
-      </figure>
-    </button>
+        aria-label={photo.starred ? "הסרת כוכב" : "סימון בכוכב"}
+        aria-pressed={photo.starred}
+      >
+        <Star className={cn("h-3.5 w-3.5", photo.starred && "fill-current")} />
+      </button>
+    </div>
   );
 }
 
