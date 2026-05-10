@@ -138,6 +138,7 @@ export function ClientPhotoLightbox({
       role="dialog"
       aria-modal="true"
       aria-label={`תצוגת תמונה ${index! + 1} מתוך ${photos.length}`}
+      aria-describedby="album-lightbox-toolbar-hint"
       className="fixed inset-0 z-[200] flex flex-col bg-ink/92"
     >
       {/* שורה עליונה — כותרת + סגירה */}
@@ -169,7 +170,7 @@ export function ClientPhotoLightbox({
               src={src}
               alt={photo.fileName}
               className={cn(
-                "block h-auto max-h-[78vh] w-full max-w-[min(96vw,1400px)] object-contain select-none transition-transform duration-150 ease-out touch-pan-y sm:max-h-[min(78vh,calc(100vh-12rem))]",
+                "block h-auto w-full max-w-[min(100vw-1rem,1400px)] max-h-[min(88vh,calc(100svh-10rem))] object-contain select-none transition-transform duration-150 ease-out touch-pan-y sm:max-h-[min(88vh,calc(100vh-11rem))]",
                 zoom > 1 && "cursor-grab"
               )}
               style={{
@@ -184,7 +185,7 @@ export function ClientPhotoLightbox({
       </div>
 
       {/* מטא + פס כלים קבוע */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[110] flex flex-col items-center gap-2 bg-gradient-to-t from-ink from-40% via-ink/92 to-transparent px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-16 sm:pt-12">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[210] flex flex-col items-center gap-2 bg-gradient-to-t from-ink from-35% via-ink/95 to-transparent px-2 pb-[max(1rem,env(safe-area-inset-bottom))] pt-20 sm:px-3 sm:pt-14">
         {(photo.estimatedDate ||
           photo.story?.trim() ||
           (photo.people && photo.people.length > 0)) && (
@@ -203,10 +204,17 @@ export function ClientPhotoLightbox({
           </div>
         )}
 
+        <p
+          id="album-lightbox-toolbar-hint"
+          className="pointer-events-none text-center text-[11px] font-medium tracking-wide text-gold-400"
+        >
+          פס כלים — זום, תמונות, איפוס
+        </p>
+
         {/* פס כלים — כיוון LTR כדי שסדר כפתורי זום יהיה יציב */}
         <div
           dir="ltr"
-          className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-x-1 gap-y-2 rounded-2xl border border-white/20 bg-ink/88 px-2 py-2 shadow-2xl backdrop-blur-md sm:gap-x-2 sm:px-3"
+          className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-x-1 gap-y-2 rounded-2xl border border-gold-500/40 bg-ink/95 px-2 py-2.5 shadow-2xl ring-1 ring-white/10 backdrop-blur-md sm:gap-x-2 sm:px-4"
         >
           {photos.length > 1 && (
             <>
@@ -218,7 +226,7 @@ export function ClientPhotoLightbox({
                 title="תמונה קודמת"
               >
                 <ChevronLeft className="h-5 w-5 shrink-0" />
-                <span className="hidden sm:inline">הקודמת</span>
+                <span className="hidden min-[420px]:inline sm:inline">הקודמת</span>
               </button>
               <button
                 type="button"
@@ -227,7 +235,7 @@ export function ClientPhotoLightbox({
                 aria-label="התמונה הבאה באלבום"
                 title="תמונה הבאה"
               >
-                <span className="hidden sm:inline">הבאה</span>
+                <span className="hidden min-[420px]:inline sm:inline">הבאה</span>
                 <ChevronRight className="h-5 w-5 shrink-0" />
               </button>
               <span
@@ -240,14 +248,15 @@ export function ClientPhotoLightbox({
           <button
             type="button"
             onClick={() => bumpZoom(-0.25)}
-            className="rounded-xl p-2.5 text-cream/95 hover:bg-white/10"
+            className="inline-flex items-center gap-1 rounded-xl px-2 py-2 text-cream/95 hover:bg-white/10 sm:px-2.5"
             aria-label="הקטנת תצוגה"
             title="הקטנה"
           >
-            <Minus className="h-5 w-5" />
+            <Minus className="h-5 w-5 shrink-0" />
+            <span className="text-[11px] font-medium sm:text-xs">קטן</span>
           </button>
           <span
-            className="min-w-[3.5rem] tabular-nums text-center text-xs font-medium text-cream sm:min-w-[4rem] sm:text-sm"
+            className="min-w-[3.5rem] tabular-nums text-center text-xs font-semibold text-cream sm:min-w-[4rem] sm:text-sm"
             aria-live="polite"
           >
             {Math.round(zoom * 100)}%
@@ -255,11 +264,12 @@ export function ClientPhotoLightbox({
           <button
             type="button"
             onClick={() => bumpZoom(0.25)}
-            className="rounded-xl p-2.5 text-cream/95 hover:bg-white/10"
+            className="inline-flex items-center gap-1 rounded-xl px-2 py-2 text-cream/95 hover:bg-white/10 sm:px-2.5"
             aria-label="הגדלת תצוגה"
             title="הגדלה"
           >
-            <Plus className="h-5 w-5" />
+            <span className="text-[11px] font-medium sm:text-xs">גדול</span>
+            <Plus className="h-5 w-5 shrink-0" />
           </button>
 
           <span
@@ -275,7 +285,7 @@ export function ClientPhotoLightbox({
             title="גודל התחלתי"
           >
             <RotateCcw className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">מקור</span>
+            <span className="text-[11px] sm:text-sm">מקור</span>
           </button>
 
           <span
