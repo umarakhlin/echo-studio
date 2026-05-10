@@ -11,6 +11,9 @@ export async function GET() {
   if (getDataBackendMode() !== "cloud") {
     return NextResponse.json({ albumAiEnhance: false });
   }
-  const configured = Boolean(process.env.REPLICATE_API_TOKEN?.trim());
+  const configured = Boolean(
+    process.env.HUGGINGFACE_API_TOKEN?.trim() ||
+      process.env.REPLICATE_API_TOKEN?.trim()
+  );
   return NextResponse.json({ albumAiEnhance: configured });
 }

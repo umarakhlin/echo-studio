@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { upscaleWithRealEsrgan } from "@/lib/ai/replicateRealEsrgan";
+import { upscaleAlbumPhoto } from "@/lib/ai/upscaleAlbumPhoto";
 import * as cloud from "@/lib/cloud/supabaseRepository";
 import { getDataBackendMode } from "@/lib/data-backend";
 
@@ -81,7 +81,7 @@ export async function POST(
 
     assertTrustedImageUrl(imageUrl);
 
-    const enhancedUrl = await upscaleWithRealEsrgan(imageUrl);
+    const enhancedUrl = await upscaleAlbumPhoto(imageUrl);
     return NextResponse.json({ enhancedUrl });
   } catch (e) {
     const msg =

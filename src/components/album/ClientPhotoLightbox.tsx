@@ -29,6 +29,15 @@ function clampZoom(z: number): number {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 100) / 100));
 }
 
+function isValidEnhancedImageUrl(url: string | undefined): url is string {
+  if (!url) return false;
+  return (
+    url.startsWith("https://") ||
+    url.startsWith("http://") ||
+    url.startsWith("data:image/")
+  );
+}
+
 function pickFullImageUrl(
   photo: Photo,
   fallbackBlobUrl: string | null
@@ -227,7 +236,7 @@ export function ClientPhotoLightbox({
         }
       }
       if (aiRequestForPhotoId.current !== id) return;
-      if (!res.ok || !enhancedUrl?.startsWith("http")) {
+      if (!res.ok || !isValidEnhancedImageUrl(enhancedUrl)) {
         let msg = text || "השיפור נכשל.";
         try {
           const j = JSON.parse(text) as { error?: string };
@@ -522,6 +531,18 @@ export function ClientPhotoLightbox({
                   className="font-medium text-eggplant underline underline-offset-2 hover:text-eggplant/90"
                 >
                   לפתיחת דף החיוב ב-Replicate
+                </a>
+              </p>
+            ) : null}
+            {aiError.includes("מגבלת השימוש ב-Hugging Face") ? (
+              <p>
+                <a
+                  href="https://huggingface.co/settings/billing"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-eggplant underline underline-offset-2 hover:text-eggplant/90"
+                >
+                  לפתיחת החיוב ב-Hugging Face
                 </a>
               </p>
             ) : null}
