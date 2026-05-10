@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ChevronLeft,
@@ -9,6 +9,7 @@ import {
   Minus,
   Plus,
   RotateCcw,
+  Sparkles,
   Star,
   X,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { albumDisplayNameStorageKey } from "@/lib/album-client-labels";
 import { useBlobUrl } from "@/lib/blob-url";
 import type { Photo } from "@/lib/db/types";
 import { cn } from "@/lib/cn";
+import { getDataBackendMode } from "@/lib/data-backend";
 
 /** זום בתצוגת לקוח — מתחת ל-100% כדי לראות את כל התמונה בתוך המסך. */
 const ZOOM_MIN = 0.25;
@@ -48,6 +50,7 @@ function pickPreviewBlob(photo: Photo | null): Blob | null {
 interface Props {
   photos: Photo[];
   activePhotoId: string | null;
+  projectCode: string;
   onClose: () => void;
   onActivePhotoIdChange: (id: string) => void;
   showCustomLabels: boolean;
@@ -59,6 +62,7 @@ interface Props {
 export function ClientPhotoLightbox({
   photos,
   activePhotoId,
+  projectCode,
   onClose,
   onActivePhotoIdChange,
   showCustomLabels,
@@ -81,6 +85,16 @@ export function ClientPhotoLightbox({
 
   const [zoom, setZoom] = useState(1);
   const [displayLabel, setDisplayLabel] = useState("");
+  const [aiEnhancedUrl, setAiEnhancedUrl] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const aiRequestForPhotoId = useRef<string | null>(null);
+
+  const canUseAiEnhance =
+    getDataBackendMode() === "cloud" &&
+    Boolean(photo?.displayUrl?.trim()?.startsWith("https://"));
+
+  const displayImageSrc = aiEnhancedUrl ?? src;
 
   useEffect(() => {
     if (!photo?.id || typeof window === "undefined") {
@@ -90,6 +104,13 @@ export function ClientPhotoLightbox({
     setDisplayLabel(
       localStorage.getItem(albumDisplayNameStorageKey(String(photo.id))) ?? ""
     );
+  }, [photo?.id]);
+
+  useEffect(() => {
+    setAiEnhancedUrl(null);
+    setAiLoading(false);
+    setAiError(null);
+    aiRequestForPhotoId.current = null;
   }, [photo?.id]);
 
   const persistDisplayLabel = useCallback(
@@ -157,6 +178,53 @@ export function ClientPhotoLightbox({
     setZoom((z) => clampZoom(z + delta));
   }, []);
 
+  const runAiEnhance = useCallback(async () => {
+    if (!photo?.id || !canUseAiEnhance) return;
+    const id = String(photo.id);
+    aiRequestForPhotoId.current = id;
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch(
+        `/api/public/project/${encodeURIComponent(projectCode.toUpperCase())}/enhance-photo`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ photoId: id }),
+        }
+      );
+      const text = await res.text();
+      let enhancedUrl: string | undefined;
+      if (res.ok) {
+        try {
+          const j = JSON.parse(text) as { enhancedUrl?: string };
+          enhancedUrl = j.enhancedUrl;
+        } catch {
+          /* */
+        }
+      }
+      if (aiRequestForPhotoId.current !== id) return;
+      if (!res.ok || !enhancedUrl?.startsWith("http")) {
+        let msg = text || "השיפור נכשל.";
+        try {
+          const j = JSON.parse(text) as { error?: string };
+          if (j.error) msg = j.error;
+        } catch {
+          /* */
+        }
+        setAiError(msg);
+        return;
+      }
+      setAiEnhancedUrl(enhancedUrl);
+    } catch {
+      if (aiRequestForPhotoId.current === id) {
+        setAiError("לא הצלחנו להתחבר לשירות השיפור. נסי שוב.");
+      }
+    } finally {
+      if (aiRequestForPhotoId.current === id) setAiLoading(false);
+    }
+  }, [photo?.id, canUseAiEnhance, projectCode]);
+
   if (!open || !photo) return null;
   if (typeof document === "undefined") return null;
 
@@ -205,12 +273,12 @@ export function ClientPhotoLightbox({
       >
         <div className="pointer-events-none flex min-h-full items-center justify-center p-4 sm:p-6">
           <div className="pointer-events-auto max-h-full max-w-full">
-            {!src ? (
+            {!displayImageSrc ? (
               <Loader2 className="h-10 w-10 animate-spin text-eggplant/35" />
             ) : (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
-                src={src}
+                src={displayImageSrc}
                 alt={
                   showCustomLabels && displayLabel.trim()
                     ? displayLabel.trim()
@@ -281,6 +349,55 @@ export function ClientPhotoLightbox({
               className={cn("h-5 w-5", photo.starred && "fill-current")}
             />
           </button>
+
+          {canUseAiEnhance && (
+            <>
+              <span
+                className="mx-0.5 hidden h-6 w-px bg-eggplant/15 sm:block"
+                aria-hidden
+              />
+              {aiEnhancedUrl ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAiEnhancedUrl(null);
+                    setAiError(null);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs text-eggplant hover:bg-cream-200 sm:text-sm"
+                  aria-label="חזרה לתמונת המקור מהסטודיו"
+                  title="חזרה לתמונת המקור מהסטודיו"
+                >
+                  <RotateCcw className="h-4 w-4 shrink-0" />
+                  <span className="max-[380px]:sr-only">ללא שיפור</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void runAiEnhance()}
+                  disabled={aiLoading}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs text-eggplant hover:bg-cream-200 sm:text-sm",
+                    aiLoading && "opacity-60"
+                  )}
+                  aria-label="שיפור איכות תמונה עם AI"
+                  title="שיפור איכות (AI) — עלול לקחת כ־דקה"
+                >
+                  {aiLoading ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 shrink-0 text-gold-600" />
+                  )}
+                  <span className="max-[380px]:sr-only">שיפור AI</span>
+                </button>
+              )}
+              {photos.length < 2 ? (
+                <span
+                  className="mx-0.5 hidden h-6 w-px bg-eggplant/15 sm:block"
+                  aria-hidden
+                />
+              ) : null}
+            </>
+          )}
 
           {photos.length > 1 && (
             <span
@@ -367,6 +484,15 @@ export function ClientPhotoLightbox({
           </span>
         </div>
 
+        {aiError ? (
+          <p
+            className="mt-2 text-center text-[11px] leading-snug text-red-600"
+            role="alert"
+          >
+            {aiError}
+          </p>
+        ) : null}
+
         <div
           className="mt-3 space-y-2 rounded-xl border border-eggplant/10 bg-cream-100/80 px-3 py-2.5 text-right"
           onClick={(e) => e.stopPropagation()}
@@ -400,8 +526,9 @@ export function ClientPhotoLightbox({
         </div>
 
         <p className="mt-2 text-center text-[11px] text-ink-muted">
-          זום רק מכפתורי קטן/גדול, מקשי +/−/0 (מקור = 100%), או מגע עליהם — עד 25%
-          ועד 400% · לא עם גלגלת עכבר · ← → · Esc לסגירה
+          זום: כפתורים / מקשי +/−/0 (איפוס ל־100%) / מגע — בין 25% ל־400%, בלי גלגלת עכבר
+          · ← → לניווט · Esc לסגירה · במצב ענן: שיפור AI בפס הכלים (ייתכן עיכוב של
+          עד כדקה)
         </p>
       </footer>
     </div>

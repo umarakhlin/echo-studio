@@ -333,7 +333,9 @@ export function ClientAlbumView({ code }: { code: string }) {
               <strong className="font-medium text-eggplant">כוכב</strong> בפינה ובפס
               הכלים — אותו סימון בגלריה ובזום; מתעדכן מיד.{" "}
               <strong className="font-medium text-eggplant">זום</strong> מכפתורים או
-              מקלדת — גם מתחת ל־100% (עד 25%), לא מגלגלת עכבר על התמונה. כינוי לתמונה ואפשרות להציג או להסתיר
+              מקלדת — גם מתחת ל־100% (עד 25%), לא מגלגלת עכבר על התמונה.{" "}
+              <strong className="font-medium text-eggplant">שיפור AI</strong> לתצוגה
+              (לא שינוי בקבצים) — בפס הכלים בתצוגה המוגדלת, במצב ענן. כינוי לתמונה ואפשרות להציג או להסתיר
               אותו — בתחתית חלון התצוגה; נשמר רק במכשיר הזה.
             </p>
 
@@ -364,6 +366,7 @@ export function ClientAlbumView({ code }: { code: string }) {
       <ClientPhotoLightbox
         photos={visiblePhotos}
         activePhotoId={lightboxPhotoId}
+        projectCode={project.code}
         onClose={() => setLightboxPhotoId(null)}
         onActivePhotoIdChange={setLightboxPhotoId}
         showCustomLabels={showCustomLabels}
