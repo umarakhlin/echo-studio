@@ -87,12 +87,6 @@ export function ClientAlbumView({ code }: { code: string }) {
     return list;
   }, [photos, activeAlbumId, filter]);
 
-  const lightboxIndex = useMemo(() => {
-    if (!lightboxPhotoId) return null;
-    const i = visiblePhotos.findIndex((p) => p.id === lightboxPhotoId);
-    return i >= 0 ? i : null;
-  }, [lightboxPhotoId, visiblePhotos]);
-
   const starredCount = useMemo(
     () =>
       photos.filter(
@@ -290,12 +284,12 @@ export function ClientAlbumView({ code }: { code: string }) {
                 description="הסטודיו עובד על הסריקה. ברגע שייכנסו תמונות, הן יופיעו כאן."
               />
             ) : (
-              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              <ul className="relative z-[1] isolate grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {visiblePhotos.map((photo) => (
-                  <li key={photo.id}>
+                  <li key={photo.id} className="relative z-0 min-w-0">
                     <ClientPhotoTile
                       photo={photo}
-                      onOpen={() => setLightboxPhotoId(photo.id)}
+                      onOpen={() => setLightboxPhotoId(String(photo.id))}
                     />
                   </li>
                 ))}
@@ -307,12 +301,9 @@ export function ClientAlbumView({ code }: { code: string }) {
 
       <ClientPhotoLightbox
         photos={visiblePhotos}
-        index={lightboxIndex}
+        activePhotoId={lightboxPhotoId}
         onClose={() => setLightboxPhotoId(null)}
-        onIndexChange={(i) => {
-          const p = visiblePhotos[i];
-          if (p) setLightboxPhotoId(p.id);
-        }}
+        onActivePhotoIdChange={setLightboxPhotoId}
       />
 
       <footer className="border-t border-eggplant/10 bg-cream-200/60">
@@ -397,24 +388,17 @@ function ClientPhotoTile({
   const blobUrl = useBlobUrl(tileBlobForHook(photo));
   const url = photo.thumbnailDisplayUrl ?? photo.displayUrl ?? blobUrl ?? null;
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      className="group block w-full cursor-zoom-in touch-manipulation text-right transition hover:opacity-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-eggplant rounded-xl"
+    <button
+      type="button"
+      className="group block w-full cursor-zoom-in touch-manipulation text-right transition hover:opacity-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-eggplant rounded-xl [-webkit-tap-highlight-color:transparent]"
       aria-label={`פתיחת תמונה מספר ${photo.serialNumber} בגודל מלא`}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
         onOpen();
       }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
     >
-      <figure className="overflow-hidden rounded-xl border border-eggplant/10 bg-cream-300 shadow-soft transition group-hover:border-gold-400/45 group-hover:shadow-md">
+      <figure className="pointer-events-none overflow-hidden rounded-xl border border-eggplant/10 bg-cream-300 shadow-soft transition group-hover:border-gold-400/45 group-hover:shadow-md">
         <div className="relative aspect-[4/5]">
           {url && (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -422,18 +406,19 @@ function ClientPhotoTile({
               src={url}
               alt=""
               loading="lazy"
+              decoding="async"
               draggable={false}
               onDragStart={(e) => e.preventDefault()}
-              className="h-full w-full object-cover pointer-events-none select-none"
+              className="h-full w-full object-cover select-none"
             />
           )}
           {photo.starred && (
-            <span className="pointer-events-none absolute top-2 left-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gold-400 text-white">
+            <span className="absolute top-2 left-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gold-400 text-white">
               <Star className="h-3.5 w-3.5 fill-current" />
             </span>
           )}
           <span
-            className="pointer-events-none absolute top-2 right-2 rounded-full bg-white/90 px-2 py-0.5 font-mono text-xs text-eggplant shadow-soft"
+            className="absolute top-2 right-2 rounded-full bg-white/90 px-2 py-0.5 font-mono text-xs text-eggplant shadow-soft"
             dir="ltr"
           >
             #{String(photo.serialNumber).padStart(3, "0")}
@@ -445,7 +430,7 @@ function ClientPhotoTile({
           </figcaption>
         )}
       </figure>
-    </div>
+    </button>
   );
 }
 

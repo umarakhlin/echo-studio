@@ -36,18 +36,27 @@ function pickPreviewBlob(photo: Photo | null): Blob | null {
 
 interface Props {
   photos: Photo[];
-  index: number | null;
+  /** מזהה תמונה פתוחה — מקור אמת יחיד */
+  activePhotoId: string | null;
   onClose: () => void;
-  onIndexChange: (i: number) => void;
+  /** ניווט: מעביר למזהה תמונה אחרת ברשימה הנוכחית */
+  onActivePhotoIdChange: (id: string) => void;
 }
 
 export function ClientPhotoLightbox({
   photos,
-  index,
+  activePhotoId,
   onClose,
-  onIndexChange,
+  onActivePhotoIdChange,
 }: Props) {
-  const open = index !== null && index >= 0 && index < photos.length;
+  const index = useMemo(() => {
+    if (!activePhotoId) return null;
+    const id = String(activePhotoId);
+    const i = photos.findIndex((p) => String(p.id) === id);
+    return i >= 0 ? i : null;
+  }, [activePhotoId, photos]);
+
+  const open = index !== null;
   const photo = open ? photos[index!] : null;
   const previewBlob = useMemo(() => pickPreviewBlob(photo), [photo]);
   const blobSrc = useBlobUrl(previewBlob);
@@ -57,13 +66,15 @@ export function ClientPhotoLightbox({
 
   const goPrev = useCallback(() => {
     if (index === null || photos.length < 2) return;
-    onIndexChange(index <= 0 ? photos.length - 1 : index - 1);
-  }, [index, photos.length, onIndexChange]);
+    const nextIdx = index <= 0 ? photos.length - 1 : index - 1;
+    onActivePhotoIdChange(String(photos[nextIdx].id));
+  }, [index, photos, onActivePhotoIdChange]);
 
   const goNext = useCallback(() => {
     if (index === null || photos.length < 2) return;
-    onIndexChange(index >= photos.length - 1 ? 0 : index + 1);
-  }, [index, photos.length, onIndexChange]);
+    const nextIdx = index >= photos.length - 1 ? 0 : index + 1;
+    onActivePhotoIdChange(String(photos[nextIdx].id));
+  }, [index, photos, onActivePhotoIdChange]);
 
   useEffect(() => {
     if (!open) return;
@@ -127,7 +138,7 @@ export function ClientPhotoLightbox({
       role="dialog"
       aria-modal="true"
       aria-label={`תצוגת תמונה ${index! + 1} מתוך ${photos.length}`}
-      className="fixed inset-0 z-[100] flex flex-col bg-ink/92"
+      className="fixed inset-0 z-[200] flex flex-col bg-ink/92"
     >
       {/* שורה עליונה — כותרת + סגירה */}
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-3 py-2.5 text-cream sm:px-5">
@@ -158,7 +169,7 @@ export function ClientPhotoLightbox({
               src={src}
               alt={photo.fileName}
               className={cn(
-                "block h-auto max-h-[min(78vh,100dvh-12rem)] w-full max-w-[min(96vw,1400px)] object-contain select-none transition-transform duration-150 ease-out touch-pan-y",
+                "block h-auto max-h-[78vh] w-full max-w-[min(96vw,1400px)] object-contain select-none transition-transform duration-150 ease-out touch-pan-y sm:max-h-[min(78vh,calc(100vh-12rem))]",
                 zoom > 1 && "cursor-grab"
               )}
               style={{
