@@ -39,8 +39,7 @@ function humanizeReplicateError(raw: string): string {
   if (/insufficient credit/i.test(t)) {
     return (
       "אין מספיק יתרה בחשבון Replicate (שירות שיפור התמונות). " +
-      "הוסיפי אשראי: https://replicate.com/account/billing#billing — " +
-      "המתיני כמה דקות ונסי שוב."
+      "הוסיפי אשראי, המתיני כמה דקות ונסי שוב."
     );
   }
   return t;

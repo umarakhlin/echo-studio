@@ -508,12 +508,24 @@ export function ClientPhotoLightbox({
         </div>
 
         {aiError ? (
-          <p
-            className="mt-2 text-center text-[11px] leading-snug text-red-600"
+          <div
+            className="mt-2 space-y-1.5 text-center text-[11px] leading-snug text-red-600"
             role="alert"
           >
-            {aiError}
-          </p>
+            <p>{aiError}</p>
+            {aiError.includes("אין מספיק יתרה") ? (
+              <p>
+                <a
+                  href="https://replicate.com/account/billing#billing"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-eggplant underline underline-offset-2 hover:text-eggplant/90"
+                >
+                  לפתיחת דף החיוב ב-Replicate
+                </a>
+              </p>
+            ) : null}
+          </div>
         ) : null}
 
         <div
