@@ -125,6 +125,8 @@ export function ClientPhotoLightbox({
   const [geminiLoading, setGeminiLoading] = useState(false);
   const [geminiError, setGeminiError] = useState<string | null>(null);
   const geminiRequestForPhotoId = useRef<string | null>(null);
+  const geminiPromptInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const [geminiPromptPanelOpen, setGeminiPromptPanelOpen] = useState(false);
   /** null עד לתשובת השרת — לא מציגים כפתור AI כדי למנוע שגיאה אחרי לחיצה */
   const [albumAiEnhanceConfigured, setAlbumAiEnhanceConfigured] = useState<
     boolean | null
@@ -220,7 +222,13 @@ export function ClientPhotoLightbox({
     setGeminiError(null);
     geminiRequestForPhotoId.current = null;
     setGeminiPrompt("");
+    setGeminiPromptPanelOpen(false);
   }, [photo?.id]);
+
+  useEffect(() => {
+    if (!geminiPromptPanelOpen || !geminiPromptInputRef.current) return;
+    geminiPromptInputRef.current.focus();
+  }, [geminiPromptPanelOpen]);
 
   const persistDisplayLabel = useCallback(
     (raw: string) => {
@@ -376,6 +384,8 @@ export function ClientPhotoLightbox({
         return;
       }
       setGeminiEditedUrl(editedUrl);
+      setGeminiPromptPanelOpen(false);
+      setGeminiPrompt("");
     } catch {
       if (geminiRequestForPhotoId.current === id) {
         setGeminiError("לא הצלחנו להתחבר לשירות העריכה. נסי שוב.");
@@ -597,24 +607,25 @@ export function ClientPhotoLightbox({
               ) : (
                 <button
                   type="button"
-                  onClick={() => void runGeminiEdit()}
-                  disabled={
-                    geminiLoading ||
-                    !geminiPrompt.trim() ||
-                    !canRunGeminiEdit
-                  }
+                  onClick={() => {
+                    setGeminiPromptPanelOpen((v) => {
+                      if (!v) setGeminiError(null);
+                      return !v;
+                    });
+                  }}
+                  disabled={geminiLoading}
+                  aria-expanded={geminiPromptPanelOpen}
+                  aria-controls="album-lightbox-gemini-prompt"
                   className={cn(
                     "inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs text-eggplant hover:bg-cream-200 sm:text-sm",
-                    (geminiLoading ||
-                      !geminiPrompt.trim() ||
-                      !canRunGeminiEdit) &&
-                      "opacity-60"
+                    geminiLoading && "opacity-60",
+                    geminiPromptPanelOpen && "bg-cream-300/80"
                   )}
-                  aria-label="עריכת תמונה לפי טקסט עם Gemini"
+                  aria-label="עריכת תמונה לפי תיאור עם Gemini"
                   title={
-                    canRunGeminiEdit
-                      ? "הפעילי אחרי שכתבת את הבקשה למטה"
-                      : "נדרש GEMINI_API_KEY בשרת"
+                    geminiPromptPanelOpen
+                      ? "סגירת שדה התיאור (לחיצה נוספת)"
+                      : "פתיחת שדה לכתיבת מה לשנות בתמונה"
                   }
                 >
                   {geminiLoading ? (
@@ -622,7 +633,7 @@ export function ClientPhotoLightbox({
                   ) : (
                     <Wand2 className="h-4 w-4 shrink-0 text-eggplant" />
                   )}
-                  <span className="max-[380px]:sr-only">עריכת AI לפי תיאור</span>
+                  <span className="max-[380px]:sr-only">עריכה לפי תיאור</span>
                 </button>
               )}
             </>
@@ -713,7 +724,9 @@ export function ClientPhotoLightbox({
           </span>
         </div>
 
-        {showGeminiByDescriptionUi ? (
+        {showGeminiByDescriptionUi &&
+        geminiPromptPanelOpen &&
+        !geminiEditedUrl ? (
           <div
             className="mt-2 rounded-xl border border-eggplant/10 bg-cream-100/90 px-3 py-2.5"
             onClick={(e) => e.stopPropagation()}
@@ -722,17 +735,29 @@ export function ClientPhotoLightbox({
               htmlFor="album-lightbox-gemini-prompt"
               className="mb-1.5 block text-center text-[11px] font-medium text-eggplant/85"
             >
-              עריכה לפי תיאור (Gemini) — כתבי מה לשנות בתמונה
+              מה לשנות בתמונה? — לחצי Enter לשליחה
             </label>
             <textarea
+              ref={geminiPromptInputRef}
               id="album-lightbox-gemini-prompt"
               dir="auto"
-              rows={2}
+              rows={3}
               value={geminiPrompt}
               onChange={(e) => setGeminiPrompt(e.target.value)}
-              placeholder="לדוגמה: הסירי את הרקע, הוסיפי תאורה חמה, תקני את הצבעים…"
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                if (e.shiftKey) return;
+                e.preventDefault();
+                if (!geminiLoading && canRunGeminiEdit && geminiPrompt.trim()) {
+                  void runGeminiEdit();
+                }
+              }}
+              placeholder="למשל: הוסיפי לתינוק כנפי דרקון שחורות…"
               className="w-full resize-y rounded-lg border border-eggplant/15 bg-cream px-2.5 py-2 text-sm text-eggplant placeholder:text-ink-muted/70 focus:border-eggplant/35 focus:outline-none focus:ring-2 focus:ring-gold-400/40"
             />
+            <p className="mt-1.5 text-center text-[10px] text-ink-muted">
+              Enter — שליחה · Shift+Enter — שורה חדשה
+            </p>
             {albumGeminiConfigured === false ? (
               <p className="mt-2 text-center text-[11px] leading-snug text-ink-muted">
                 כדי להפעיל: הוסיפי לשרת את{" "}
@@ -824,7 +849,7 @@ export function ClientPhotoLightbox({
             ? " · שיפור AI בפס הכלים (עד כדקה)"
             : ""}
           {showGeminiByDescriptionUi
-            ? " · עריכה לפי תיאור: שדה למטה + כפתור בפס הכלים (דורש GEMINI_API_KEY בשרת)"
+            ? " · עריכה לפי תיאור: כפתור השרביט → כתיבה → Enter (דורש GEMINI_API_KEY בשרת)"
             : ""}
         </p>
       </footer>
