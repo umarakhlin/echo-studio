@@ -26,6 +26,7 @@ import {
   replacePhotoFromBlob,
 } from "@/lib/db/store";
 import { cn } from "@/lib/cn";
+import { suggestDocumentQuad } from "@/lib/scanner/documentQuad";
 import {
   imageDataToBlob,
   scaleQuadAboutCentroid,
@@ -68,6 +69,11 @@ function fullImageQuad(w: number, h: number): Quad {
     { x: w - 1, y: h - 1 },
     { x: 0, y: h - 1 },
   ];
+}
+
+function quadForImage(idata: ImageData): Quad {
+  const suggested = suggestDocumentQuad(idata);
+  return suggested ?? fullImageQuad(idata.width, idata.height);
 }
 
 /**
@@ -239,7 +245,7 @@ export function ScannerWorkspace({
         setEditTarget({ id: ph.id, defaultFileName: ph.fileName });
         setSourceName(`${ph.fileName} · עריכת יישור`);
         setImageData(idata);
-        setQuad(fullImageQuad(idata.width, idata.height));
+        setQuad(quadForImage(idata));
         setPreviewUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
           return null;
@@ -269,7 +275,7 @@ export function ScannerWorkspace({
       const idata = await fileToScaledImageData(file, WORK_MAX_EDGE);
       setSourceName(file.name);
       setImageData(idata);
-      setQuad(fullImageQuad(idata.width, idata.height));
+      setQuad(quadForImage(idata));
       setEditTarget(null);
       setPreviewUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
@@ -428,6 +434,19 @@ export function ScannerWorkspace({
     setQuad(fullImageQuad(imageData.width, imageData.height));
   }
 
+  function autoDetectFrame() {
+    if (!imageData) return;
+    const suggested = suggestDocumentQuad(imageData);
+    if (suggested) {
+      setQuad(suggested);
+      toast.success("מסגרת זוהתה אוטומטית — ניתן לדייק ידנית.");
+    } else {
+      toast.error(
+        "לא זוהתה מסגרת ברורה — גררו את הפינות או השתמשו באיפוס לתמונה מלאה."
+      );
+    }
+  }
+
   return (
     <div className="space-y-6">
       {loadingEditSource && editPhotoId ? (
@@ -568,6 +587,16 @@ export function ScannerWorkspace({
                 title="מרחיב את המסגרת — מראה יותר מהתמונה מסביב"
               >
                 יותר שוליים
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                startIcon={<Wand2 className="h-4 w-4" />}
+                onClick={autoDetectFrame}
+                title="ניסיון לזות את קצה המסמך (כמו תצוגה מקדימה)"
+              >
+                זיהוי מסגרת אוטומטי
               </Button>
               <Button
                 type="button"

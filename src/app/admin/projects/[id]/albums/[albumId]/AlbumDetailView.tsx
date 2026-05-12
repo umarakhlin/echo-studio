@@ -11,6 +11,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/Toast";
 import { PhotoTile } from "@/components/admin/PhotoTile";
+import { StudioAlbumPhotoLightbox } from "@/components/admin/StudioAlbumPhotoLightbox";
 import { PhotoEditDialog } from "@/components/admin/PhotoEditDialog";
 import { PhotoUploader } from "@/components/admin/PhotoUploader";
 import { Input } from "@/components/ui/Input";
@@ -47,6 +48,7 @@ export function AlbumDetailView({
   const [editDescription, setEditDescription] = useState("");
   const [savingDetails, setSavingDetails] = useState(false);
   const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
+  const [viewPhotoId, setViewPhotoId] = useState<string | null>(null);
 
   async function refresh() {
     const [p, a, ph] = await Promise.all([
@@ -90,6 +92,13 @@ export function AlbumDetailView({
   }, [photos, filter]);
 
   const starredCount = photos.filter((p) => p.starred).length;
+
+  useEffect(() => {
+    if (!viewPhotoId) return;
+    if (!visible.some((p) => String(p.id) === viewPhotoId)) {
+      setViewPhotoId(null);
+    }
+  }, [visible, viewPhotoId]);
 
   async function onToggleStar(photo: Photo) {
     const updated = await toggleStarPhoto(photo.id);
@@ -300,6 +309,7 @@ export function AlbumDetailView({
                   onToggleStar={onToggleStar}
                   onDelete={onDeletePhoto}
                   onEdit={(p) => setEditingPhoto(p)}
+                  onView={(p) => setViewPhotoId(p.id)}
                   recropScanHref={`/admin/projects/${projectId}/albums/${albumId}/scan?editPhoto=${photo.id}`}
                 />
               </li>
@@ -316,6 +326,20 @@ export function AlbumDetailView({
           setPhotos((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
         }
       />
+
+      {project && viewPhotoId ? (
+        <StudioAlbumPhotoLightbox
+          photos={visible}
+          activePhotoId={viewPhotoId}
+          projectCode={project.code}
+          onClose={() => setViewPhotoId(null)}
+          onActivePhotoIdChange={setViewPhotoId}
+          onToggleStar={async (id) => {
+            const ph = photos.find((p) => String(p.id) === id);
+            if (ph) await onToggleStar(ph);
+          }}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={confirmDelete}

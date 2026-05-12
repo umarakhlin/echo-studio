@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { PencilLine, ScanLine, Star, Trash2 } from "lucide-react";
+import { Expand, PencilLine, ScanLine, Star, Trash2 } from "lucide-react";
 
 import { useBlobUrl } from "@/lib/blob-url";
 import { cn } from "@/lib/cn";
@@ -17,6 +17,8 @@ interface Props {
   onEdit?: (photo: Photo) => void;
   /** קישור לסורק לעריכת יישור/חיתוך מחדש של אותה תמונה באלבום */
   recropScanHref?: string;
+  /** לחיצה על התמונה — למשל תצוגה גדולה בלייטבוקס */
+  onView?: (photo: Photo) => void;
 }
 
 export function PhotoTile({
@@ -25,6 +27,7 @@ export function PhotoTile({
   onDelete,
   onEdit,
   recropScanHref,
+  onView,
 }: Props) {
   const blobUrl = useBlobUrl(photo.thumbnailBlob ?? photo.blob);
   const url =
@@ -37,7 +40,33 @@ export function PhotoTile({
   return (
     <figure className="group relative overflow-hidden rounded-xl bg-cream-300 shadow-soft border border-eggplant/10">
       {/* תמונה */}
-      <div className="relative aspect-[4/5] w-full bg-cream-300">
+      <div
+        className={cn(
+          "relative aspect-[4/5] w-full bg-cream-300",
+          onView && "cursor-zoom-in"
+        )}
+        onClick={
+          onView
+            ? (e) => {
+                if ((e.target as HTMLElement).closest("button, a")) return;
+                onView(photo);
+              }
+            : undefined
+        }
+        role={onView ? "button" : undefined}
+        tabIndex={onView ? 0 : undefined}
+        aria-label={onView ? "פתיחה בתצוגה גדולה" : undefined}
+        onKeyDown={
+          onView
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onView(photo);
+                }
+              }
+            : undefined
+        }
+      >
         {url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
@@ -99,6 +128,22 @@ export function PhotoTile({
             <ScanLine className="h-3.5 w-3.5" />
           </Link>
         ) : null}
+
+        {onView && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onView(photo);
+            }}
+            aria-label="תצוגה גדולה"
+            title="תצוגה גדולה"
+            className="absolute bottom-2 left-1/2 z-10 inline-flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full border border-eggplant/15 bg-white/90 text-eggplant opacity-0 shadow-soft transition-all hover:bg-white group-hover:opacity-100"
+          >
+            <Expand className="h-3.5 w-3.5" />
+          </button>
+        )}
 
         {onEdit && (
           <button

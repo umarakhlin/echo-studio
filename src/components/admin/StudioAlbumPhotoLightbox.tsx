@@ -15,13 +15,11 @@ import {
   X,
 } from "lucide-react";
 
-import { albumDisplayNameStorageKey } from "@/lib/album-client-labels";
 import { useBlobUrl } from "@/lib/blob-url";
 import type { Photo } from "@/lib/db/types";
 import { cn } from "@/lib/cn";
 import { getDataBackendMode } from "@/lib/data-backend";
 
-/** זום בתצוגת לקוח — מתחת ל-100% כדי לראות את כל התמונה בתוך המסך. */
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 4;
 const ZOOM_STEP = 0.25;
@@ -39,7 +37,6 @@ function isValidEnhancedImageUrl(url: string | undefined): url is string {
   );
 }
 
-/** מנקה דפי HTML/שגיאות gateway כדי שלא יוצגו בלייטבוקס כטקסט גולמי */
 function formatAiEnhanceApiError(raw: string): string {
   const t = raw.trim();
   if (!t) return "השיפור נכשל.";
@@ -49,15 +46,15 @@ function formatAiEnhanceApiError(raw: string): string {
   const pre = /<pre[^>]*>([\s\S]*?)<\/pre>/i.exec(t);
   if (pre?.[1] && /cannot post/i.test(pre[1])) {
     return (
-      "הבקשה נשלחה לנתיב inference שלא תומך במודל הזה (בדרך כלל קוד לא מעודכן או מודל לא נתמך). " +
-      "פרקי מחדש אחרי פריסה מ-Vercel, ובדקי ש־HUGGINGFACE_API_TOKEN כולל הרשאת Inference Providers."
+      "הבקשה נשלחה לנתיב inference שלא תומך במודל הזה. " +
+      "פרקי מחדש אחרי פריסה ובדקי את הטוקן."
     );
   }
   if (pre?.[1]) {
     const inner = pre[1].trim();
     return inner.length > 220 ? `${inner.slice(0, 220)}…` : inner;
   }
-  return "שגיאת שירות שיפור — נסי שוב או בדקי פריסה וטוקן Hugging Face.";
+  return "שגיאת שירות שיפור — נסי שוב או בדקי פריסה.";
 }
 
 function pickFullImageUrl(
@@ -84,22 +81,16 @@ interface Props {
   projectCode: string;
   onClose: () => void;
   onActivePhotoIdChange: (id: string) => void;
-  showCustomLabels: boolean;
-  onShowCustomLabelsChange: (value: boolean) => void;
   onToggleStar: (photoId: string) => void | Promise<void>;
-  onDisplayLabelSaved?: () => void;
 }
 
-export function ClientPhotoLightbox({
+export function StudioAlbumPhotoLightbox({
   photos,
   activePhotoId,
   projectCode,
   onClose,
   onActivePhotoIdChange,
-  showCustomLabels,
-  onShowCustomLabelsChange,
   onToggleStar,
-  onDisplayLabelSaved,
 }: Props) {
   const index = useMemo(() => {
     if (!activePhotoId) return null;
@@ -115,7 +106,6 @@ export function ClientPhotoLightbox({
   const src = photo ? pickFullImageUrl(photo, blobSrc) : null;
 
   const [zoom, setZoom] = useState(1);
-  const [displayLabel, setDisplayLabel] = useState("");
   const [aiEnhancedUrl, setAiEnhancedUrl] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -125,7 +115,6 @@ export function ClientPhotoLightbox({
   const [geminiLoading, setGeminiLoading] = useState(false);
   const [geminiError, setGeminiError] = useState<string | null>(null);
   const geminiRequestForPhotoId = useRef<string | null>(null);
-  /** null עד לתשובת השרת — לא מציגים כפתור AI כדי למנוע שגיאה אחרי לחיצה */
   const [albumAiEnhanceConfigured, setAlbumAiEnhanceConfigured] = useState<
     boolean | null
   >(null);
@@ -179,7 +168,6 @@ export function ClientPhotoLightbox({
   const canUseAiEnhance =
     albumAiEnhanceConfigured === true && hasCloudPhotoUrl;
 
-  /** הרצת בקשה ל-Gemini — רק כשהמפתח מוגדר בשרת */
   const canRunGeminiEdit =
     albumGeminiConfigured === true && hasCloudPhotoUrl;
 
@@ -187,7 +175,6 @@ export function ClientPhotoLightbox({
   const showLocalBackendHint =
     clientBackend === "local" || aiFeaturesDataBackend === "local";
 
-  /** תיבת «עריכה לפי תיאור» — תמיד במצב ענן עם תמונת Supabase, גם לפני הגדרת מפתח */
   const showGeminiByDescriptionUi =
     hasCloudPhotoUrl &&
     clientBackend === "cloud" &&
@@ -201,16 +188,6 @@ export function ClientPhotoLightbox({
   const displayImageSrc = geminiEditedUrl ?? aiEnhancedUrl ?? src;
 
   useEffect(() => {
-    if (!photo?.id || typeof window === "undefined") {
-      setDisplayLabel("");
-      return;
-    }
-    setDisplayLabel(
-      localStorage.getItem(albumDisplayNameStorageKey(String(photo.id))) ?? ""
-    );
-  }, [photo?.id]);
-
-  useEffect(() => {
     setAiEnhancedUrl(null);
     setAiLoading(false);
     setAiError(null);
@@ -221,19 +198,6 @@ export function ClientPhotoLightbox({
     geminiRequestForPhotoId.current = null;
     setGeminiPrompt("");
   }, [photo?.id]);
-
-  const persistDisplayLabel = useCallback(
-    (raw: string) => {
-      if (!photo?.id || typeof window === "undefined") return;
-      const t = raw.trim();
-      const key = albumDisplayNameStorageKey(String(photo.id));
-      if (t) localStorage.setItem(key, t);
-      else localStorage.removeItem(key);
-      setDisplayLabel(t);
-      onDisplayLabelSaved?.();
-    },
-    [photo?.id, onDisplayLabelSaved]
-  );
 
   const goPrev = useCallback(() => {
     if (index === null || photos.length < 2) return;
@@ -343,14 +307,11 @@ export function ClientPhotoLightbox({
     setGeminiLoading(true);
     setGeminiError(null);
     try {
-      const res = await fetch(
-        `/api/public/project/${encodeURIComponent(projectCode.toUpperCase())}/gemini-edit-photo`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ photoId: id, prompt }),
-        }
-      );
+      const res = await fetch("/api/studio/gemini-edit-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photoId: id, prompt }),
+      });
       const text = await res.text();
       let editedUrl: string | undefined;
       if (res.ok) {
@@ -370,9 +331,7 @@ export function ClientPhotoLightbox({
         } catch {
           /* */
         }
-        setGeminiError(
-          msg.length > 420 ? `${msg.slice(0, 420)}…` : msg
-        );
+        setGeminiError(msg.length > 420 ? `${msg.slice(0, 420)}…` : msg);
         return;
       }
       setGeminiEditedUrl(editedUrl);
@@ -383,7 +342,7 @@ export function ClientPhotoLightbox({
     } finally {
       if (geminiRequestForPhotoId.current === id) setGeminiLoading(false);
     }
-  }, [photo?.id, canRunGeminiEdit, projectCode, geminiPrompt]);
+  }, [photo?.id, canRunGeminiEdit, geminiPrompt]);
 
   if (!open || !photo) return null;
   if (typeof document === "undefined") return null;
@@ -393,10 +352,8 @@ export function ClientPhotoLightbox({
       role="dialog"
       aria-modal="true"
       aria-label={`תצוגת תמונה ${index! + 1} מתוך ${photos.length}`}
-      aria-describedby="album-lightbox-toolbar-hint"
       className="fixed inset-0 z-[200] flex max-h-[100dvh] flex-col bg-cream text-ink"
     >
-      {/* פס עליון — חלבי מלא, בלי שכבת fade על התמונה */}
       <header
         className="flex shrink-0 flex-col gap-2 border-b border-eggplant/12 bg-cream-200 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4"
         onClick={(e) => e.stopPropagation()}
@@ -409,11 +366,6 @@ export function ClientPhotoLightbox({
               {photo.fileName}
             </span>
           </p>
-          {showCustomLabels && displayLabel.trim() ? (
-            <p className="truncate text-sm font-medium text-eggplant" dir="auto">
-              {displayLabel.trim()}
-            </p>
-          ) : null}
         </div>
         <button
           type="button"
@@ -426,7 +378,6 @@ export function ClientPhotoLightbox({
         </button>
       </header>
 
-      {/* אזור תמונה: לחיצה על הרקע החלבי סוגרת */}
       <div
         className="min-h-0 flex-1 overflow-auto overscroll-contain bg-cream-100"
         onClick={onClose}
@@ -439,11 +390,7 @@ export function ClientPhotoLightbox({
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={displayImageSrc}
-                alt={
-                  showCustomLabels && displayLabel.trim()
-                    ? displayLabel.trim()
-                    : photo.fileName
-                }
+                alt={photo.fileName}
                 className={cn(
                   "block max-h-[calc(100dvh-12.5rem)] max-w-[min(100vw-2rem,1400px)] object-contain select-none sm:max-h-[calc(100vh-13rem)]"
                 )}
@@ -460,48 +407,24 @@ export function ClientPhotoLightbox({
         </div>
       </div>
 
-      {/* פס תחתון — חלבי מלא, ללא גרדיאנט מעל התמונה */}
       <footer
         className="shrink-0 border-t border-eggplant/12 bg-cream-200 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 sm:px-4 sm:pb-3 sm:pt-3"
         onClick={(e) => e.stopPropagation()}
       >
-        {(photo.estimatedDate ||
-          photo.story?.trim() ||
-          (photo.people && photo.people.length > 0)) && (
-          <div className="mb-2 max-h-[22vh] w-full overflow-y-auto rounded-lg border border-eggplant/10 bg-cream-100/90 px-3 py-2 text-center text-sm text-ink-soft">
-            {photo.estimatedDate && (
-              <p className="text-ink-muted">{photo.estimatedDate}</p>
-            )}
-            {photo.story?.trim() && (
-              <p className="mt-1 leading-relaxed text-ink">{photo.story}</p>
-            )}
-            {photo.people && photo.people.length > 0 && (
-              <p className="mt-1 text-xs text-ink-muted">
-                {photo.people.join(" · ")}
-              </p>
-            )}
-          </div>
-        )}
-
-        <p
-          id="album-lightbox-toolbar-hint"
-          className="mb-1.5 text-center text-[11px] font-medium text-eggplant/80"
-        >
-          פס כלים · לחיצה מחוץ לתמונה — חזרה לגלריה
+        <p className="mb-1.5 text-center text-[11px] font-medium text-eggplant/80">
+          פס כלים · לחיצה מחוץ לתמונה — סגירה
         </p>
 
         {showLocalBackendHint ? (
           <p className="mb-2 rounded-lg border border-gold-400/40 bg-gold-50/90 px-3 py-2 text-center text-[11px] leading-snug text-eggplant">
-            שיפור איכות ועריכת Gemini זמינים כשהאתר רץ במצב{" "}
-            <strong className="font-semibold">ענן</strong> (Supabase): הגדירי
-            בקובץ הסביבה <code className="rounded bg-cream-200 px-1">NEXT_PUBLIC_DATA_BACKEND=cloud</code> ואת המפתחות בשרת, והפעילי מחדש את השרת.
+            שיפור AI ו-Gemini זמינים במצב ענן:{" "}
+            <code className="rounded bg-cream-200 px-1">NEXT_PUBLIC_DATA_BACKEND=cloud</code>, Supabase והמפתחות בשרת — ואז הפעלה מחדש של השרת.
           </p>
         ) : null}
 
         {showMissingCloudUrlHint ? (
           <p className="mb-2 rounded-lg border border-eggplant/15 bg-cream-100 px-3 py-2 text-center text-[11px] leading-snug text-ink-soft">
-            לתמונה הזו אין כרגע קישור תצוגה HTTPS מהענן — שיפור AI ו-Gemini עובדים
-            רק על תמונות שמאוחסנות ב־Supabase.
+            לתמונה אין קישור HTTPS מהענן — השירותים האלה דורשים תמונות מועלות ל־Supabase.
           </p>
         ) : null}
 
@@ -539,8 +462,8 @@ export function ClientPhotoLightbox({
                     setAiError(null);
                   }}
                   className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs text-eggplant hover:bg-cream-200 sm:text-sm"
-                  aria-label="חזרה לתמונת המקור מהסטודיו"
-                  title="חזרה לתמונת המקור מהסטודיו"
+                  aria-label="חזרה לתמונת המקור"
+                  title="חזרה לתמונת המקור"
                 >
                   <RotateCcw className="h-4 w-4 shrink-0" />
                   <span className="max-[380px]:sr-only">ללא שיפור</span>
@@ -555,7 +478,7 @@ export function ClientPhotoLightbox({
                     aiLoading && "opacity-60"
                   )}
                   aria-label="שיפור איכות תמונה עם AI"
-                  title="שיפור איכות (AI) — עלול לקחת כ־דקה"
+                  title="שיפור איכות (AI)"
                 >
                   {aiLoading ? (
                     <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
@@ -565,12 +488,6 @@ export function ClientPhotoLightbox({
                   <span className="max-[380px]:sr-only">שיפור AI</span>
                 </button>
               )}
-              {photos.length < 2 ? (
-                <span
-                  className="mx-0.5 hidden h-6 w-px bg-eggplant/15 sm:block"
-                  aria-hidden
-                />
-              ) : null}
             </>
           )}
 
@@ -588,8 +505,8 @@ export function ClientPhotoLightbox({
                     setGeminiError(null);
                   }}
                   className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs text-eggplant hover:bg-cream-200 sm:text-sm"
-                  aria-label="חזרה לתמונה לפני עריכת Gemini"
-                  title="חזרה לתמונה לפני עריכת Gemini"
+                  aria-label="חזרה לפני עריכת Gemini"
+                  title="חזרה לפני עריכת Gemini"
                 >
                   <RotateCcw className="h-4 w-4 shrink-0" />
                   <span className="max-[380px]:sr-only">ללא Gemini</span>
@@ -613,7 +530,7 @@ export function ClientPhotoLightbox({
                   aria-label="עריכת תמונה לפי טקסט עם Gemini"
                   title={
                     canRunGeminiEdit
-                      ? "הפעילי אחרי שכתבת את הבקשה למטה"
+                      ? "אחרי שכתבת את הבקשה למטה"
                       : "נדרש GEMINI_API_KEY בשרת"
                   }
                 >
@@ -622,26 +539,25 @@ export function ClientPhotoLightbox({
                   ) : (
                     <Wand2 className="h-4 w-4 shrink-0 text-eggplant" />
                   )}
-                  <span className="max-[380px]:sr-only">עריכת AI לפי תיאור</span>
+                  <span className="max-[380px]:sr-only">
+                    עריכת AI לפי תיאור
+                  </span>
                 </button>
               )}
             </>
           )}
 
           {photos.length > 1 && (
-            <span
-              className="mx-0.5 hidden h-6 w-px bg-eggplant/15 sm:block"
-              aria-hidden
-            />
-          )}
-
-          {photos.length > 1 && (
             <>
+              <span
+                className="mx-0.5 hidden h-6 w-px bg-eggplant/15 sm:block"
+                aria-hidden
+              />
               <button
                 type="button"
                 onClick={goPrev}
                 className="inline-flex items-center gap-1 rounded-lg px-2.5 py-2 text-sm text-eggplant hover:bg-cream-200 sm:px-3"
-                aria-label="התמונה הקודמת באלבום"
+                aria-label="התמונה הקודמת"
               >
                 <ChevronLeft className="h-5 w-5 shrink-0" />
                 <span className="hidden min-[420px]:inline sm:inline">
@@ -652,7 +568,7 @@ export function ClientPhotoLightbox({
                 type="button"
                 onClick={goNext}
                 className="inline-flex items-center gap-1 rounded-lg px-2.5 py-2 text-sm text-eggplant hover:bg-cream-200 sm:px-3"
-                aria-label="התמונה הבאה באלבום"
+                aria-label="התמונה הבאה"
               >
                 <span className="hidden min-[420px]:inline sm:inline">
                   הבאה
@@ -719,25 +635,25 @@ export function ClientPhotoLightbox({
             onClick={(e) => e.stopPropagation()}
           >
             <label
-              htmlFor="album-lightbox-gemini-prompt"
+              htmlFor="studio-lightbox-gemini-prompt"
               className="mb-1.5 block text-center text-[11px] font-medium text-eggplant/85"
             >
-              עריכה לפי תיאור (Gemini) — כתבי מה לשנות בתמונה
+              עריכה לפי תיאור (Gemini)
             </label>
             <textarea
-              id="album-lightbox-gemini-prompt"
+              id="studio-lightbox-gemini-prompt"
               dir="auto"
               rows={2}
               value={geminiPrompt}
               onChange={(e) => setGeminiPrompt(e.target.value)}
-              placeholder="לדוגמה: הסירי את הרקע, הוסיפי תאורה חמה, תקני את הצבעים…"
+              placeholder="תארי מה לשנות בתמונה…"
               className="w-full resize-y rounded-lg border border-eggplant/15 bg-cream px-2.5 py-2 text-sm text-eggplant placeholder:text-ink-muted/70 focus:border-eggplant/35 focus:outline-none focus:ring-2 focus:ring-gold-400/40"
             />
             {albumGeminiConfigured === false ? (
               <p className="mt-2 text-center text-[11px] leading-snug text-ink-muted">
                 כדי להפעיל: הוסיפי לשרת את{" "}
                 <code className="rounded bg-cream-200 px-1">GEMINI_API_KEY</code>{" "}
-                והפעילי מחדש את האתר (זה נפרד משיפור האיכות).
+                והפעילי מחדש.
               </p>
             ) : null}
           </div>
@@ -758,74 +674,11 @@ export function ClientPhotoLightbox({
             role="alert"
           >
             <p>{aiError}</p>
-            {aiError.includes("אין מספיק יתרה") ? (
-              <p>
-                <a
-                  href="https://replicate.com/account/billing#billing"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-eggplant underline underline-offset-2 hover:text-eggplant/90"
-                >
-                  לפתיחת דף החיוב ב-Replicate
-                </a>
-              </p>
-            ) : null}
-            {aiError.includes("מגבלת השימוש ב-Hugging Face") ? (
-              <p>
-                <a
-                  href="https://huggingface.co/settings/billing"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-eggplant underline underline-offset-2 hover:text-eggplant/90"
-                >
-                  לפתיחת החיוב ב-Hugging Face
-                </a>
-              </p>
-            ) : null}
           </div>
         ) : null}
 
-        <div
-          className="mt-3 space-y-2 rounded-xl border border-eggplant/10 bg-cream-100/80 px-3 py-2.5 text-right"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <label className="flex cursor-pointer items-center gap-2 text-xs text-ink-soft">
-            <span className="min-w-0 flex-1 leading-snug">
-              להציג בגלריה ובחלון את השם שמילאתי למטה
-            </span>
-            <input
-              type="checkbox"
-              checked={showCustomLabels}
-              onChange={(e) => onShowCustomLabelsChange(e.target.checked)}
-              className="h-3.5 w-3.5 shrink-0 rounded border-eggplant/25 text-eggplant focus:ring-gold-400/50"
-            />
-          </label>
-          <div>
-            <label className="sr-only" htmlFor="album-lightbox-display-name">
-              כינוי לתמונה (נשמר במכשיר)
-            </label>
-            <input
-              id="album-lightbox-display-name"
-              type="text"
-              value={displayLabel}
-              onChange={(e) => setDisplayLabel(e.target.value)}
-              onBlur={() => persistDisplayLabel(displayLabel)}
-              placeholder="כינוי לתמונה (רק במכשיר הזה)"
-              dir="auto"
-              className="w-full rounded-lg border border-eggplant/15 bg-cream px-2.5 py-1.5 text-sm text-eggplant placeholder:text-ink-muted/70 focus:border-eggplant/35 focus:outline-none focus:ring-2 focus:ring-gold-400/40"
-            />
-          </div>
-        </div>
-
         <p className="mt-2 text-center text-[11px] text-ink-muted">
-          זום: כפתורים / מקשי +/−/0 (איפוס ל־100%) / מגע — בין 25% ל־400%, בלי גלגלת עכבר
-          · ← → לניווט · Esc לסגירה
-          {albumAiEnhanceConfigured === true
-            ? " · שיפור AI בפס הכלים (עד כדקה)"
-            : ""}
-          {showGeminiByDescriptionUi
-            ? " · עריכה לפי תיאור: שדה למטה + כפתור בפס הכלים (דורש GEMINI_API_KEY בשרת)"
-            : ""}
+          זום: כפתורים / מקשי +/−/0 · ← → לניווט · Esc לסגירה
         </p>
       </footer>
     </div>

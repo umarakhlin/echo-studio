@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { upscaleAlbumPhoto } from "@/lib/ai/upscaleAlbumPhoto";
+import { geminiEditImageFromUrl } from "@/lib/ai/geminiEditImage";
 import * as cloud from "@/lib/cloud/supabaseRepository";
 import { assertTrustedPhotoImageUrl } from "@/lib/cloud/trustedImageUrl";
 import { getDataBackendMode } from "@/lib/data-backend";
 
 export const runtime = "nodejs";
-/** Real-ESRGAN יכול לקחת עד דקה — תואם ל־Vercel Pro; בהובי אולי יספיק Partial wait + poll. */
 export const maxDuration = 120;
 
 export async function POST(
@@ -15,7 +14,7 @@ export async function POST(
 ) {
   if (getDataBackendMode() !== "cloud") {
     return NextResponse.json(
-      { error: "שיפור AI זמין במצב ענן בלבד." },
+      { error: "עריכת Gemini זמינה במצב ענן בלבד." },
       { status: 503 }
     );
   }
@@ -30,13 +29,9 @@ export async function POST(
     return NextResponse.json({ error: "גוף לא תקין." }, { status: 400 });
   }
 
-  const photoId =
-    typeof body === "object" &&
-    body !== null &&
-    "photoId" in body &&
-    typeof (body as { photoId: unknown }).photoId === "string"
-      ? (body as { photoId: string }).photoId
-      : null;
+  const rec = body as Record<string, unknown>;
+  const photoId = typeof rec.photoId === "string" ? rec.photoId : null;
+  const prompt = typeof rec.prompt === "string" ? rec.prompt : "";
 
   if (!photoId?.trim()) {
     return NextResponse.json({ error: "חסר מזהה תמונה." }, { status: 400 });
@@ -63,11 +58,11 @@ export async function POST(
 
     assertTrustedPhotoImageUrl(imageUrl);
 
-    const enhancedUrl = await upscaleAlbumPhoto(imageUrl);
-    return NextResponse.json({ enhancedUrl });
+    const editedUrl = await geminiEditImageFromUrl(imageUrl, prompt);
+    return NextResponse.json({ editedUrl });
   } catch (e) {
     const msg =
-      e instanceof Error ? e.message : "שגיאה בעיבוד התמונה. נסי שוב מאוחר יותר.";
+      e instanceof Error ? e.message : "שגיאה בעריכת התמונה. נסי שוב מאוחר יותר.";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
