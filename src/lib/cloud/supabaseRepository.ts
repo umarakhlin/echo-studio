@@ -16,6 +16,14 @@ import { ECHO_PHOTOS_BUCKET, getPublicObjectUrl, supabaseAdmin } from "@/lib/sup
 
 const FALLBACK_STATUS: ProjectStatus = "intake";
 
+/** מניעת תצוגת תמונה ישנה מהמטמון אחרי החלפת קובץ ב-Storage (אותו נתיב). */
+function publicUrlWithVersion(storagePath: string, updatedAt: number): string {
+  const base = getPublicObjectUrl(storagePath);
+  const t = Number(updatedAt);
+  if (!Number.isFinite(t) || t <= 0) return base;
+  return base.includes("?") ? `${base}&v=${t}` : `${base}?v=${t}`;
+}
+
 function normalizeProjectStatus(raw: unknown): ProjectStatus {
   if (
     typeof raw === "string" &&
@@ -81,6 +89,7 @@ function normalizePeopleJson(raw: unknown): string[] | undefined {
 function rowToPhoto(r: Record<string, unknown>): Photo {
   const storagePath = String(r.storage_path ?? "");
   const thumbPath = String(r.thumb_path ?? "");
+  const updatedAt = Number(r.updated_at);
   return {
     id: String(r.id ?? ""),
     albumId: String(r.album_id ?? ""),
@@ -90,8 +99,12 @@ function rowToPhoto(r: Record<string, unknown>): Photo {
     mimeType: String(r.mime_type ?? "image/jpeg"),
     blob: new Blob(),
     thumbnailBlob: undefined,
-    displayUrl: storagePath ? getPublicObjectUrl(storagePath) : undefined,
-    thumbnailDisplayUrl: thumbPath ? getPublicObjectUrl(thumbPath) : undefined,
+    displayUrl: storagePath.trim()
+      ? publicUrlWithVersion(storagePath, updatedAt)
+      : undefined,
+    thumbnailDisplayUrl: thumbPath.trim()
+      ? publicUrlWithVersion(thumbPath, updatedAt)
+      : undefined,
     width: (r.width as number) ?? undefined,
     height: (r.height as number) ?? undefined,
     starred: Boolean(r.starred),
@@ -99,7 +112,7 @@ function rowToPhoto(r: Record<string, unknown>): Photo {
     story: (r.story as string) ?? undefined,
     people: normalizePeopleJson(r.people),
     createdAt: Number(r.created_at),
-    updatedAt: Number(r.updated_at),
+    updatedAt,
   };
 }
 
