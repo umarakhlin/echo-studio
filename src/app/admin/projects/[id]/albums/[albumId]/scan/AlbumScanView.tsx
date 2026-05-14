@@ -122,8 +122,12 @@ export function AlbumScanView({
           albumId={album.id}
           projectId={project.id}
           editPhotoId={editPhotoId}
-          onSaved={() => {
-            router.refresh();
+          onSaved={({ kind }) => {
+            if (kind === "replace") {
+              router.push(`/admin/projects/${project.id}/albums/${album.id}`);
+            } else {
+              router.refresh();
+            }
           }}
         />
       </section>

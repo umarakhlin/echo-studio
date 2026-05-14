@@ -107,7 +107,8 @@ interface Props {
   projectId: string;
   /** כשנשלח — טוענים תמונה קיימת לסורק ומעדכנים אותה בשמירה (במקום יצירת כפילות) */
   editPhotoId?: string | null;
-  onSaved?: () => void | Promise<void>;
+  /** אחרי שמירה מוצלחת — kind מציין אם עודכנה תמונה קיימת או נוספה חדשה */
+  onSaved?: (detail: { kind: "new" | "replace" }) => void | Promise<void>;
 }
 
 export function ScannerWorkspace({
@@ -418,7 +419,7 @@ export function ScannerWorkspace({
         });
         toast.success("התמונה המיושרת נשמרה באלבום.");
       }
-      await onSaved?.();
+      await onSaved?.({ kind: editTarget ? "replace" : "new" });
     } catch (e) {
       console.error(e);
       toast.error(
