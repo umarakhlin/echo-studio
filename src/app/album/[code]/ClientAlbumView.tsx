@@ -7,7 +7,9 @@ import { Home, Images, Info, Star } from "lucide-react";
 import {
   albumDisplayNameStorageKey,
   readShowCustomAlbumLabels,
+  readShowStudioBackInfo,
   writeShowCustomAlbumLabels,
+  writeShowStudioBackInfo,
 } from "@/lib/album-client-labels";
 import { writeLastAlbumProjectCode } from "@/lib/album-last-code";
 import { ClientPhotoLightbox } from "@/components/album/ClientPhotoLightbox";
@@ -44,6 +46,7 @@ export function ClientAlbumView({ code }: { code: string }) {
   /** פתיחה לפי מזהה — עמיד יותר מאינדקס (מסנן/רענון רשימה). */
   const [lightboxPhotoId, setLightboxPhotoId] = useState<string | null>(null);
   const [showCustomLabels, setShowCustomLabels] = useState(false);
+  const [showStudioBackInfo, setShowStudioBackInfo] = useState(true);
   /** ריענון כיתובים מ-localStorage אחרי שמירה בלייטבוקס */
   const [labelVersion, setLabelVersion] = useState(0);
 
@@ -113,11 +116,17 @@ export function ClientAlbumView({ code }: { code: string }) {
 
   useEffect(() => {
     setShowCustomLabels(readShowCustomAlbumLabels());
+    setShowStudioBackInfo(readShowStudioBackInfo());
   }, []);
 
   function persistShowCustomLabels(value: boolean) {
     writeShowCustomAlbumLabels(value);
     setShowCustomLabels(value);
+  }
+
+  function persistShowStudioBackInfo(value: boolean) {
+    writeShowStudioBackInfo(value);
+    setShowStudioBackInfo(value);
   }
 
   async function handleToggleStar(photoId: string) {
@@ -342,8 +351,9 @@ export function ClientAlbumView({ code }: { code: string }) {
               <strong className="font-medium text-eggplant">זום</strong> מכפתורים או
               מקלדת — גם מתחת ל־100% (עד 25%), לא מגלגלת עכבר על התמונה.{" "}
               <strong className="font-medium text-eggplant">שיפור AI</strong> לתצוגה
-              (רק אם הוגדר בשרת; לא משנה קבצים) — בפס הכלים בתצוגה המוגדלת. כינוי לתמונה ואפשרות להציג או להסתיר
-              אותו — בתחתית חלון התצוגה; נשמר רק במכשיר הזה.
+              (רק אם הוגדר בשרת; לא משנה קבצים) — בפס הכלים בתצוגה המוגדלת. כינוי אישי,
+              הצגתו בגלריה, ופרטי תאריך/סיפור מהסטודיו — בתחתית חלון התצוגה; נשמר רק במכשיר
+              הזה.
             </p>
 
             {visiblePhotos.length === 0 ? (
@@ -358,6 +368,7 @@ export function ClientAlbumView({ code }: { code: string }) {
                     <ClientPhotoTile
                       photo={photo}
                       showCustomLabels={showCustomLabels}
+                      showStudioBackInfo={showStudioBackInfo}
                       labelVersion={labelVersion}
                       onOpen={() => setLightboxPhotoId(String(photo.id))}
                       onToggleStar={() => void handleToggleStar(String(photo.id))}
@@ -378,6 +389,8 @@ export function ClientAlbumView({ code }: { code: string }) {
         onActivePhotoIdChange={setLightboxPhotoId}
         showCustomLabels={showCustomLabels}
         onShowCustomLabelsChange={persistShowCustomLabels}
+        showStudioBackInfo={showStudioBackInfo}
+        onShowStudioBackInfoChange={persistShowStudioBackInfo}
         onToggleStar={handleToggleStar}
         onDisplayLabelSaved={() => setLabelVersion((v) => v + 1)}
       />
@@ -459,12 +472,14 @@ function ClientPhotoTile({
   onOpen,
   onToggleStar,
   showCustomLabels,
+  showStudioBackInfo,
   labelVersion,
 }: {
   photo: Photo;
   onOpen: () => void;
   onToggleStar: () => void;
   showCustomLabels: boolean;
+  showStudioBackInfo: boolean;
   labelVersion: number;
 }) {
   const blobUrl = useBlobUrl(tileBlobForHook(photo));
@@ -511,9 +526,9 @@ function ClientPhotoTile({
               #{String(photo.serialNumber).padStart(3, "0")}
             </span>
           </div>
-          {(photo.estimatedDate || customCaption) && (
+          {(showStudioBackInfo && photo.estimatedDate) || customCaption ? (
             <figcaption className="space-y-0.5 px-2.5 py-1.5 text-center text-[11px] text-ink-muted">
-              {photo.estimatedDate ? (
+              {showStudioBackInfo && photo.estimatedDate ? (
                 <span className="block">{photo.estimatedDate}</span>
               ) : null}
               {customCaption ? (
@@ -522,7 +537,7 @@ function ClientPhotoTile({
                 </span>
               ) : null}
             </figcaption>
-          )}
+          ) : null}
         </figure>
       </button>
       <button

@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Loader2,
   Minus,
-  PencilLine,
   Plus,
   RotateCcw,
   Sparkles,
@@ -87,6 +86,8 @@ interface Props {
   onActivePhotoIdChange: (id: string) => void;
   showCustomLabels: boolean;
   onShowCustomLabelsChange: (value: boolean) => void;
+  showStudioBackInfo: boolean;
+  onShowStudioBackInfoChange: (value: boolean) => void;
   onToggleStar: (photoId: string) => void | Promise<void>;
   onDisplayLabelSaved?: () => void;
 }
@@ -99,6 +100,8 @@ export function ClientPhotoLightbox({
   onActivePhotoIdChange,
   showCustomLabels,
   onShowCustomLabelsChange,
+  showStudioBackInfo,
+  onShowStudioBackInfoChange,
   onToggleStar,
   onDisplayLabelSaved,
 }: Props) {
@@ -396,16 +399,6 @@ export function ClientPhotoLightbox({
     }
   }, [photo?.id, canRunGeminiEdit, projectCode, geminiPrompt]);
 
-  const focusCaptionEditor = useCallback(() => {
-    onShowCustomLabelsChange(true);
-    requestAnimationFrame(() => {
-      document
-        .getElementById("client-lightbox-caption-section")
-        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      document.getElementById("album-lightbox-display-name")?.focus();
-    });
-  }, [onShowCustomLabelsChange]);
-
   if (!open || !photo) return null;
   if (typeof document === "undefined") return null;
 
@@ -486,9 +479,10 @@ export function ClientPhotoLightbox({
         className="shrink-0 border-t border-eggplant/12 bg-cream-200 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 sm:px-4 sm:pb-3 sm:pt-3"
         onClick={(e) => e.stopPropagation()}
       >
-        {(photo.estimatedDate ||
-          photo.story?.trim() ||
-          (photo.people && photo.people.length > 0)) && (
+        {showStudioBackInfo &&
+          (photo.estimatedDate ||
+            photo.story?.trim() ||
+            (photo.people && photo.people.length > 0)) && (
           <div className="mb-2 max-h-[22vh] w-full overflow-y-auto rounded-lg border border-eggplant/10 bg-cream-100/90 px-3 py-2 text-center text-sm text-ink-soft">
             {photo.estimatedDate && (
               <p className="text-ink-muted">{photo.estimatedDate}</p>
@@ -544,20 +538,6 @@ export function ClientPhotoLightbox({
             <Star
               className={cn("h-5 w-5", photo.starred && "fill-current")}
             />
-          </button>
-
-          <span
-            className="mx-0.5 hidden h-6 w-px bg-eggplant/15 sm:block"
-            aria-hidden
-          />
-          <button
-            type="button"
-            onClick={focusCaptionEditor}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-eggplant hover:bg-cream-200"
-            aria-label="עריכת כינוי לתמונה"
-            title="עריכת כינוי (בחלק התחתון של החלון)"
-          >
-            <PencilLine className="h-5 w-5 shrink-0" />
           </button>
 
           {canUseAiEnhance && (
@@ -866,11 +846,22 @@ export function ClientPhotoLightbox({
               className="w-full rounded-lg border border-eggplant/15 bg-cream px-2.5 py-1.5 text-sm text-eggplant placeholder:text-ink-muted/70 focus:border-eggplant/35 focus:outline-none focus:ring-2 focus:ring-gold-400/40"
             />
           </div>
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-ink-soft">
+            <span className="min-w-0 flex-1 leading-snug">
+              להציג את הסימון מהסטודיו מאחורי התמונה (תאריך, סיפור, אנשים)
+            </span>
+            <input
+              type="checkbox"
+              checked={showStudioBackInfo}
+              onChange={(e) => onShowStudioBackInfoChange(e.target.checked)}
+              className="h-3.5 w-3.5 shrink-0 rounded border-eggplant/25 text-eggplant focus:ring-gold-400/50"
+            />
+          </label>
         </div>
 
         <p className="mt-2 text-center text-[11px] text-ink-muted">
-          זום: כפתורי קטן/גדול ומקור · מקשי +/− ו־0 (איפוס) · בלי גלגלת עכבר · כפתור
-          העיפרון — כינוי מהיר · ← → לניווט · Esc לסגירה
+          זום: כפתורי קטן/גדול ומקור · מקשי +/− ו־0 (איפוס) · בלי גלגלת עכבר · כינוי
+          ופרטי סטודיו — בתיבה למטה · ← → לניווט · Esc לסגירה
           {albumAiEnhanceConfigured === true
             ? " · שיפור AI בפס הכלים (עד כדקה)"
             : ""}
