@@ -6,7 +6,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Minus,
   PencilLine,
+  Plus,
   RotateCcw,
   Sparkles,
   Star,
@@ -19,6 +21,15 @@ import { useBlobUrl } from "@/lib/blob-url";
 import type { Photo } from "@/lib/db/types";
 import { cn } from "@/lib/cn";
 import { getDataBackendMode } from "@/lib/data-backend";
+
+/** זום בתצוגת לקוח — בין 25% ל־400%. */
+const ZOOM_MIN = 0.25;
+const ZOOM_MAX = 4;
+const ZOOM_STEP = 0.25;
+
+function clampZoom(z: number): number {
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 100) / 100));
+}
 
 function isValidEnhancedImageUrl(url: string | undefined): url is string {
   if (!url) return false;
@@ -104,6 +115,7 @@ export function ClientPhotoLightbox({
   const blobSrc = useBlobUrl(previewBlob);
   const src = photo ? pickFullImageUrl(photo, blobSrc) : null;
 
+  const [zoom, setZoom] = useState(1);
   const [displayLabel, setDisplayLabel] = useState("");
   const [aiEnhancedUrl, setAiEnhancedUrl] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -246,6 +258,11 @@ export function ClientPhotoLightbox({
 
   useEffect(() => {
     if (!open) return;
+    setZoom(1);
+  }, [open, photo?.id]);
+
+  useEffect(() => {
+    if (!open) return;
     const rtl =
       typeof document !== "undefined" &&
       document.documentElement.getAttribute("dir") === "rtl";
@@ -253,6 +270,18 @@ export function ClientPhotoLightbox({
       if (e.key === "Escape") onClose();
       if (e.key === "ArrowRight") rtl ? goPrev() : goNext();
       if (e.key === "ArrowLeft") rtl ? goNext() : goPrev();
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        setZoom((z) => clampZoom(z + ZOOM_STEP));
+      }
+      if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        setZoom((z) => clampZoom(z - ZOOM_STEP));
+      }
+      if (e.key === "0") {
+        e.preventDefault();
+        setZoom(1);
+      }
     };
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -262,6 +291,10 @@ export function ClientPhotoLightbox({
       document.body.style.overflow = prev;
     };
   }, [open, goPrev, goNext, onClose]);
+
+  const bumpZoom = useCallback((delta: number) => {
+    setZoom((z) => clampZoom(z + delta));
+  }, []);
 
   const runAiEnhance = useCallback(async () => {
     if (!photo?.id || !canUseAiEnhance) return;
@@ -435,6 +468,10 @@ export function ClientPhotoLightbox({
                 className={cn(
                   "block max-h-[calc(100dvh-12.5rem)] max-w-[min(100vw-2rem,1400px)] object-contain select-none sm:max-h-[calc(100vh-13rem)]"
                 )}
+                style={{
+                  transform: `scale(${zoom})`,
+                  transformOrigin: "center center",
+                }}
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
                 onClick={(e) => e.stopPropagation()}
@@ -662,7 +699,48 @@ export function ClientPhotoLightbox({
           )}
 
           <span
+            className="mx-0.5 hidden h-6 w-px bg-eggplant/15 sm:block"
+            aria-hidden
+          />
+          <button
+            type="button"
+            onClick={() => bumpZoom(-0.25)}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-eggplant hover:bg-cream-200 sm:px-2.5"
+            aria-label="הקטנת תצוגה"
+          >
+            <Minus className="h-5 w-5 shrink-0" />
+            <span className="text-[11px] font-medium sm:text-xs">קטן</span>
+          </button>
+          <span className="min-w-[3.5rem] tabular-nums text-center text-xs font-semibold text-eggplant sm:min-w-[4rem] sm:text-sm">
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            type="button"
+            onClick={() => bumpZoom(0.25)}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-eggplant hover:bg-cream-200 sm:px-2.5"
+            aria-label="הגדלת תצוגה"
+          >
+            <span className="text-[11px] font-medium sm:text-xs">גדול</span>
+            <Plus className="h-5 w-5 shrink-0" />
+          </button>
+
+          <span
             className="mx-1 hidden h-6 w-px bg-eggplant/15 sm:block"
+            aria-hidden
+          />
+
+          <button
+            type="button"
+            onClick={() => setZoom(1)}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs text-eggplant hover:bg-cream-200 sm:text-sm"
+            aria-label="איפוס זום ל־100%"
+          >
+            <RotateCcw className="h-4 w-4 shrink-0" />
+            <span className="text-[11px] sm:text-sm">מקור</span>
+          </button>
+
+          <span
+            className="mx-1 hidden h-6 w-px bg-eggplant/15 md:block"
             aria-hidden
           />
 
@@ -791,7 +869,8 @@ export function ClientPhotoLightbox({
         </div>
 
         <p className="mt-2 text-center text-[11px] text-ink-muted">
-          כפתור העיפרון — כינוי מהיר · ← → לניווט · Esc לסגירה
+          זום: כפתורי קטן/גדול ומקור · מקשי +/− ו־0 (איפוס) · בלי גלגלת עכבר · כפתור
+          העיפרון — כינוי מהיר · ← → לניווט · Esc לסגירה
           {albumAiEnhanceConfigured === true
             ? " · שיפור AI בפס הכלים (עד כדקה)"
             : ""}
