@@ -11,6 +11,7 @@ import {
   Menu,
   LogOut,
   HardDriveDownload,
+  Home,
 } from "lucide-react";
 
 import { Logo } from "@/components/ui/Logo";
@@ -122,6 +123,15 @@ function Sidebar({
           );
         })}
       </nav>
+
+      <Link
+        href="/"
+        onClick={onNavigate}
+        className="mb-2 mt-4 flex items-center gap-3 rounded-xl border border-eggplant/10 px-3 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-cream-200 hover:text-eggplant"
+      >
+        <Home className="h-4 w-4 shrink-0" />
+        חזרה לדף הבית
+      </Link>
 
       <a
         href="/api/studio-logout"
@@ -247,13 +257,26 @@ function TopBar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
         Echo Studio · לוח ניהול
       </div>
 
-      <button
-        type="button"
-        onClick={() => router.back()}
-        className="text-sm text-ink-muted hover:text-eggplant transition-colors"
-      >
-        ← לעמוד הקודם
-      </button>
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <Link
+          href="/"
+          aria-label="חזרה לדף הבית"
+          className="inline-flex max-w-[9rem] items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:bg-cream-200 hover:text-eggplant sm:max-w-none sm:text-sm"
+        >
+          <Home className="h-4 w-4 shrink-0" />
+          <span className="truncate sm:max-w-none">
+            <span className="sm:hidden">בית</span>
+            <span className="hidden sm:inline">חזרה לדף הבית</span>
+          </span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="shrink-0 text-xs text-ink-muted transition-colors hover:text-eggplant sm:text-sm"
+        >
+          ← לעמוד הקודם
+        </button>
+      </div>
     </div>
   );
 }

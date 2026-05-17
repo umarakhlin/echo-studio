@@ -7,8 +7,10 @@ import {
   ChevronRight,
   Loader2,
   Minus,
+  PencilLine,
   Plus,
   RotateCcw,
+  Scaling,
   Sparkles,
   Star,
   Wand2,
@@ -127,6 +129,7 @@ export function ClientPhotoLightbox({
   const geminiRequestForPhotoId = useRef<string | null>(null);
   const geminiPromptInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [geminiPromptPanelOpen, setGeminiPromptPanelOpen] = useState(false);
+  const [zoomPresetsOpen, setZoomPresetsOpen] = useState(false);
   /** null עד לתשובת השרת — לא מציגים כפתור AI כדי למנוע שגיאה אחרי לחיצה */
   const [albumAiEnhanceConfigured, setAlbumAiEnhanceConfigured] = useState<
     boolean | null
@@ -223,6 +226,7 @@ export function ClientPhotoLightbox({
     geminiRequestForPhotoId.current = null;
     setGeminiPrompt("");
     setGeminiPromptPanelOpen(false);
+    setZoomPresetsOpen(false);
   }, [photo?.id]);
 
   useEffect(() => {
@@ -395,6 +399,18 @@ export function ClientPhotoLightbox({
     }
   }, [photo?.id, canRunGeminiEdit, projectCode, geminiPrompt]);
 
+  const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4] as const;
+
+  const focusCaptionEditor = useCallback(() => {
+    onShowCustomLabelsChange(true);
+    requestAnimationFrame(() => {
+      document
+        .getElementById("client-lightbox-caption-section")
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      document.getElementById("album-lightbox-display-name")?.focus();
+    });
+  }, [onShowCustomLabelsChange]);
+
   if (!open || !photo) return null;
   if (typeof document === "undefined") return null;
 
@@ -533,6 +549,20 @@ export function ClientPhotoLightbox({
             <Star
               className={cn("h-5 w-5", photo.starred && "fill-current")}
             />
+          </button>
+
+          <span
+            className="mx-0.5 hidden h-6 w-px bg-eggplant/15 sm:block"
+            aria-hidden
+          />
+          <button
+            type="button"
+            onClick={focusCaptionEditor}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-eggplant hover:bg-cream-200"
+            aria-label="עריכת כינוי לתמונה"
+            title="עריכת כינוי (בחלק התחתון של החלון)"
+          >
+            <PencilLine className="h-5 w-5 shrink-0" />
           </button>
 
           {canUseAiEnhance && (
@@ -677,6 +707,24 @@ export function ClientPhotoLightbox({
             </>
           )}
 
+          <span
+            className="mx-0.5 hidden h-6 w-px bg-eggplant/15 sm:block"
+            aria-hidden
+          />
+          <button
+            type="button"
+            onClick={() => setZoomPresetsOpen((v) => !v)}
+            aria-expanded={zoomPresetsOpen}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs text-eggplant hover:bg-cream-200 sm:text-sm",
+              zoomPresetsOpen && "bg-cream-300/80"
+            )}
+            aria-label="בחירת גודל תצוגה מהירה"
+            title="גודל תצוגה מהיר (% מהיר)"
+          >
+            <Scaling className="h-4 w-4 shrink-0" />
+            <span className="max-[380px]:sr-only">גודל</span>
+          </button>
           <button
             type="button"
             onClick={() => bumpZoom(-0.25)}
@@ -723,6 +771,38 @@ export function ClientPhotoLightbox({
             {index! + 1}/{photos.length}
           </span>
         </div>
+
+        {zoomPresetsOpen ? (
+          <div
+            className="mt-2 rounded-xl border border-eggplant/10 bg-cream-100/90 px-3 py-2.5"
+            onClick={(e) => e.stopPropagation()}
+            role="group"
+            aria-label="גודל תצוגה מהיר"
+          >
+            <p className="mb-2 text-center text-[11px] font-medium text-eggplant/85">
+              גודל תצוגה מהיר
+            </p>
+            <div
+              dir="ltr"
+              className="flex flex-wrap items-center justify-center gap-1.5"
+            >
+              {ZOOM_PRESETS.map((z) => (
+                <button
+                  key={z}
+                  type="button"
+                  onClick={() => setZoom(clampZoom(z))}
+                  className={cn(
+                    "min-w-[2.75rem] rounded-lg border border-eggplant/12 px-2 py-1.5 text-xs font-semibold tabular-nums text-eggplant hover:bg-cream-200",
+                    Math.round(zoom * 100) === Math.round(z * 100) &&
+                      "border-gold-500/50 bg-gold-100/60"
+                  )}
+                >
+                  {Math.round(z * 100)}%
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {showGeminiByDescriptionUi &&
         geminiPromptPanelOpen &&
@@ -811,6 +891,7 @@ export function ClientPhotoLightbox({
         ) : null}
 
         <div
+          id="client-lightbox-caption-section"
           className="mt-3 space-y-2 rounded-xl border border-eggplant/10 bg-cream-100/80 px-3 py-2.5 text-right"
           onClick={(e) => e.stopPropagation()}
         >
@@ -844,6 +925,7 @@ export function ClientPhotoLightbox({
 
         <p className="mt-2 text-center text-[11px] text-ink-muted">
           זום: כפתורים / מקשי +/−/0 (איפוס ל־100%) / מגע — בין 25% ל־400%, בלי גלגלת עכבר
+          · כפתור העיפרון — כינוי מהיר · כפתור גודל בתפריט — אחוזים מהירים
           · ← → לניווט · Esc לסגירה
           {albumAiEnhanceConfigured === true
             ? " · שיפור AI בפס הכלים (עד כדקה)"

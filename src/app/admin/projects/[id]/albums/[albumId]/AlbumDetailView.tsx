@@ -332,11 +332,17 @@ export function AlbumDetailView({
           photos={visible}
           activePhotoId={viewPhotoId}
           projectCode={project.code}
+          projectId={projectId}
+          albumId={albumId}
           onClose={() => setViewPhotoId(null)}
           onActivePhotoIdChange={setViewPhotoId}
           onToggleStar={async (id) => {
             const ph = photos.find((p) => String(p.id) === id);
             if (ph) await onToggleStar(ph);
+          }}
+          onEditMetadata={(p) => {
+            setViewPhotoId(null);
+            setEditingPhoto(p);
           }}
         />
       ) : null}

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -7,8 +8,11 @@ import {
   ChevronRight,
   Loader2,
   Minus,
+  PencilLine,
   Plus,
   RotateCcw,
+  Scaling,
+  ScanLine,
   Sparkles,
   Star,
   Wand2,
@@ -75,22 +79,30 @@ function pickPreviewBlob(photo: Photo | null): Blob | null {
   return null;
 }
 
+const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4] as const;
+
 interface Props {
   photos: Photo[];
   activePhotoId: string | null;
   projectCode: string;
+  projectId: string;
+  albumId: string;
   onClose: () => void;
   onActivePhotoIdChange: (id: string) => void;
   onToggleStar: (photoId: string) => void | Promise<void>;
+  onEditMetadata?: (photo: Photo) => void;
 }
 
 export function StudioAlbumPhotoLightbox({
   photos,
   activePhotoId,
   projectCode,
+  projectId,
+  albumId,
   onClose,
   onActivePhotoIdChange,
   onToggleStar,
+  onEditMetadata,
 }: Props) {
   const index = useMemo(() => {
     if (!activePhotoId) return null;
@@ -117,6 +129,7 @@ export function StudioAlbumPhotoLightbox({
   const geminiRequestForPhotoId = useRef<string | null>(null);
   const geminiPromptInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [geminiPromptPanelOpen, setGeminiPromptPanelOpen] = useState(false);
+  const [zoomPresetsOpen, setZoomPresetsOpen] = useState(false);
   const [albumAiEnhanceConfigured, setAlbumAiEnhanceConfigured] = useState<
     boolean | null
   >(null);
@@ -200,6 +213,7 @@ export function StudioAlbumPhotoLightbox({
     geminiRequestForPhotoId.current = null;
     setGeminiPrompt("");
     setGeminiPromptPanelOpen(false);
+    setZoomPresetsOpen(false);
   }, [photo?.id]);
 
   useEffect(() => {
@@ -458,6 +472,35 @@ export function StudioAlbumPhotoLightbox({
             />
           </button>
 
+          <span
+            className="mx-0.5 hidden h-6 w-px bg-eggplant/15 sm:block"
+            aria-hidden
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (photo) onEditMetadata?.(photo);
+              onClose();
+            }}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-eggplant hover:bg-cream-200"
+            aria-label="עריכת פרטי תמונה"
+            title="עריכת פרטי תמונה"
+          >
+            <PencilLine className="h-5 w-5 shrink-0" />
+          </button>
+
+          <Link
+            href={`/admin/projects/${projectId}/albums/${albumId}/scan?editPhoto=${photo.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs text-eggplant hover:bg-cream-200 sm:text-sm"
+            aria-label="חיתוך ויישור מחדש בסורק"
+            title="חיתוך ויישור בסורק"
+          >
+            <ScanLine className="h-4 w-4 shrink-0" />
+            <span className="max-[380px]:sr-only">חיתוך</span>
+          </Link>
+
           {canUseAiEnhance && (
             <>
               <span
@@ -591,6 +634,24 @@ export function StudioAlbumPhotoLightbox({
             </>
           )}
 
+          <span
+            className="mx-0.5 hidden h-6 w-px bg-eggplant/15 sm:block"
+            aria-hidden
+          />
+          <button
+            type="button"
+            onClick={() => setZoomPresetsOpen((v) => !v)}
+            aria-expanded={zoomPresetsOpen}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs text-eggplant hover:bg-cream-200 sm:text-sm",
+              zoomPresetsOpen && "bg-cream-300/80"
+            )}
+            aria-label="בחירת גודל תצוגה מהירה"
+            title="גודל תצוגה מהיר"
+          >
+            <Scaling className="h-4 w-4 shrink-0" />
+            <span className="max-[380px]:sr-only">גודל</span>
+          </button>
           <button
             type="button"
             onClick={() => bumpZoom(-0.25)}
@@ -637,6 +698,38 @@ export function StudioAlbumPhotoLightbox({
             {index! + 1}/{photos.length}
           </span>
         </div>
+
+        {zoomPresetsOpen ? (
+          <div
+            className="mt-2 rounded-xl border border-eggplant/10 bg-cream-100/90 px-3 py-2.5"
+            onClick={(e) => e.stopPropagation()}
+            role="group"
+            aria-label="גודל תצוגה מהיר"
+          >
+            <p className="mb-2 text-center text-[11px] font-medium text-eggplant/85">
+              גודל תצוגה מהיר
+            </p>
+            <div
+              dir="ltr"
+              className="flex flex-wrap items-center justify-center gap-1.5"
+            >
+              {ZOOM_PRESETS.map((z) => (
+                <button
+                  key={z}
+                  type="button"
+                  onClick={() => setZoom(clampZoom(z))}
+                  className={cn(
+                    "min-w-[2.75rem] rounded-lg border border-eggplant/12 px-2 py-1.5 text-xs font-semibold tabular-nums text-eggplant hover:bg-cream-200",
+                    Math.round(zoom * 100) === Math.round(z * 100) &&
+                      "border-gold-500/50 bg-gold-100/60"
+                  )}
+                >
+                  {Math.round(z * 100)}%
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {showGeminiByDescriptionUi &&
         geminiPromptPanelOpen &&
@@ -700,7 +793,8 @@ export function StudioAlbumPhotoLightbox({
         ) : null}
 
         <p className="mt-2 text-center text-[11px] text-ink-muted">
-          זום: כפתורים / מקשי +/−/0 · ← → לניווט · Esc לסגירה
+          זום: כפתורים / מקשי +/−/0 · עיפרון — עריכת פרטים · סורק — חיתוך · גודל — אחוזים מהירים
+          · ← → לניווט · Esc לסגירה
         </p>
       </footer>
     </div>
